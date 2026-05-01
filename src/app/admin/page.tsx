@@ -2,46 +2,44 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { format, addDays, subDays, startOfWeek, isSameDay } from "date-fns";
+import { 
+  format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
+  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
+} from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, Check, Edit3, Search, Save, ShieldCheck } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, Check, Edit3, Search, ShieldCheck, Clock, Menu } from "lucide-react";
 
-const ADMIN_WHITELIST = [
-  "jonas@eglisehome.com", 
-  "nadege@eglisehome.com", 
-  "sabine@eglisehome.com", 
-  "yves@eglisehome.com", 
-  "christine@eglisehome.com", 
-  "mathilde@eglisehome.com",
-  "jonasdellomo@gmail.com"
-];
+const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  
+  const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
+  const [currentMonthView, setCurrentMonthView] = useState(startOfMonth(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
+  
   const [spaces, setSpaces] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [adminMessage, setAdminMessage] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
+
+  const today = startOfDay(new Date());
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      handleAuth(session?.user || null);
-    };
+    const getSession = async () => { const { data: { session } } = await supabase.auth.getSession(); handleAuth(session?.user || null); };
     getSession();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleAuth(session?.user || null);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => handleAuth(session?.user || null));
     return () => subscription.unsubscribe();
   }, []);
 
   const handleAuth = (user: any) => {
     if (user && ADMIN_WHITELIST.includes(user.email!)) setUser(user);
-    else if (user) { supabase.auth.signOut(); alert("Accès refusé : votre e-mail n'est pas autorisé."); }
+    else if (user) { supabase.auth.signOut(); alert("Accès refusé."); }
     else setUser(null);
     setLoading(false);
   };
@@ -59,23 +57,15 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const processAutoValidation = async () => {
-      if (user && bookings.length > 0) {
-        const params = new URLSearchParams(window.location.search);
-        const action = params.get('action');
-        const id = params.get('id');
-        
-        if (action === 'validate' && id) {
-           const bookingToValidate = bookings.find(b => b.id === id);
-           if (bookingToValidate && bookingToValidate.status === 'pending') {
-             await updateStatus(id, 'confirmed');
-             window.history.replaceState({}, '', '/admin');
-           }
-        }
-      }
-    };
-    processAutoValidation();
-  }, [user, bookings]);
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); }};
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
+  const openBookingModal = (b: any) => {
+    setSelectedBooking(b); setIsEditing(false); setAdminMessage("");
+    setEditData({ user_name: b.user_name, space_id: b.space_id, reason: b.reason, start_time: format(new Date(b.start_time), "HH:mm"), end_time: format(new Date(b.end_time), "HH:mm") });
+  };
 
   const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
     const booking = bookings.find(b => b.id === id);
@@ -84,7 +74,7 @@ export default function AdminPage() {
     if (status === 'rejected') {
       const { error } = await supabase.from("bookings").delete().eq("id", id);
       if (!error) {
-        await notifyUser('DELETED', booking);
+        await notifyUser('DELETED', booking, adminMessage);
         setBookings(prev => prev.filter(b => b.id !== id));
         setSelectedBooking(null);
       }
@@ -93,55 +83,43 @@ export default function AdminPage() {
 
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
     if (!error) {
-      await notifyUser('CONFIRMED', booking);
-      setSelectedBooking(null); 
-      fetchBookings();
+      await notifyUser('CONFIRMED', booking, adminMessage);
+      setSelectedBooking(null); fetchBookings();
     }
   };
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const st = new Date(selectedBooking.start_time); const [sh, sm] = editData.start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
+    const et = new Date(selectedBooking.end_time); const [eh, em] = editData.end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
+
     const { error } = await supabase.from("bookings").update({
-      space_id: selectedBooking.space_id,
-      user_name: selectedBooking.user_name,
-      reason: selectedBooking.reason,
-      status: 'confirmed'
+      space_id: editData.space_id, user_name: editData.user_name, reason: editData.reason, start_time: st.toISOString(), end_time: et.toISOString(), status: 'confirmed'
     }).eq("id", selectedBooking.id);
 
     if (!error) {
-      await notifyUser('MODIFIED', selectedBooking);
-      setSelectedBooking(null); 
-      setIsEditing(false); 
-      fetchBookings();
+      await notifyUser('MODIFIED', { ...selectedBooking, space_id: editData.space_id, start_time: st.toISOString() }, adminMessage);
+      setSelectedBooking(null); setIsEditing(false); fetchBookings();
     }
   };
 
-  const notifyUser = async (type: string, booking: any) => {
+  const notifyUser = async (type: string, booking: any, adminMsg: string) => {
     await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: type,
-        user_name: booking.user_name,
-        user_email: booking.user_email,
+        type: type, user_name: booking.user_name, user_email: booking.user_email,
         space_name: spaces.find(s => s.id === booking.space_id)?.name || booking.spaces?.name,
-        start_time: booking.start_time,
-        reason: booking.reason
+        start_time: booking.start_time, admin_message: adminMsg
       })
     });
   };
 
-  const filteredBookings = bookings.filter(b => 
-    (b.user_name + b.user_email + b.reason + (b.spaces?.name || "")).toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
+  const filteredBookings = bookings.filter(b => (b.user_name + b.user_email + b.reason + (b.spaces?.name || "")).toLowerCase().includes(searchTerm.toLowerCase()));
   const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
-  
-  const calendarBookings = filteredBookings.filter(b => {
-    const bDate = new Date(b.start_time);
-    if (viewMode === 'day') return isSameDay(bDate, currentDate);
-    return bDate >= startOfWeek(currentDate, { weekStartsOn: 1 }) && bDate <= addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), 6) && b.status === 'confirmed';
-  });
+
+  const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
+  const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(monthEnd, { weekStartsOn: 1 }) });
+  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
 
   if (loading) return null;
   if (!user) return (
@@ -149,94 +127,178 @@ export default function AdminPage() {
       <div className="bg-white p-10 rounded-3xl shadow-xl border max-w-md w-full text-center font-sans">
         <ShieldCheck className="w-16 h-16 mx-auto mb-6 text-black" />
         <h1 className="text-3xl font-black mb-8">Admin Login</h1>
-        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/admin', queryParams: { prompt: 'select_account' } }})} className="w-full bg-black text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:scale-[1.02] transition-transform">
-          Continuer avec Google
-        </button>
+        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/admin', queryParams: { prompt: 'select_account' } }})} className="w-full bg-black text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:scale-[1.02] transition-transform">Continuer avec Google</button>
       </div>
     </div>
   );
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col font-sans overflow-hidden">
-      <header className="bg-white border-b px-8 py-4 flex justify-between items-center z-30">
-        <div className="flex items-center space-x-6">
-          <h1 className="text-xl font-black uppercase">Admin</h1>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 bg-gray-100 rounded-xl text-sm border-none w-64 focus:ring-2 focus:ring-black outline-none" />
+    <div className="flex h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
+      
+      {/* SIDEBAR ADMIN */}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-none transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => {setCurrentDate(today); setCurrentMonthView(today);}}>
+            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900">Admin</h1>
           </div>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-full hover:bg-gray-100"><X size={20}/></button>
         </div>
-        <div className="flex items-center bg-gray-100 p-1 rounded-xl">
-          <button onClick={() => setViewMode('day')} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${viewMode === 'day' ? 'bg-white shadow-sm' : ''}`}>JOUR</button>
-          <button onClick={() => setViewMode('week')} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${viewMode === 'week' ? 'bg-white shadow-sm' : ''}`}>SEMAINE</button>
-        </div>
-        <button onClick={() => supabase.auth.signOut()} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition"><LogOut className="w-5 h-5" /></button>
-      </header>
 
-      <div className="flex-1 flex overflow-hidden">
-        <aside className="w-80 bg-white border-r flex flex-col overflow-y-auto p-4 space-y-4 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
-          <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">En attente ({pendingBookings.length})</h2>
-          {pendingBookings.map(b => (
-            <div key={b.id} onClick={() => {setSelectedBooking(b); setIsEditing(false);}} className="p-4 rounded-2xl border border-gray-100 bg-white hover:border-black cursor-pointer shadow-sm transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500 mb-2 inline-block uppercase">{b.spaces?.name}</span>
-              <p className="font-bold text-sm">{b.user_name}</p>
+        <div className="p-6 flex-1 overflow-y-auto flex flex-col">
+          {/* Mini Calendrier */}
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6 shrink-0">
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
+              <div className="flex space-x-1">
+                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md"><ChevronLeft size={16}/></button>
+                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md"><ChevronRight size={16}/></button>
+              </div>
             </div>
-          ))}
-        </aside>
-
-        <main className="flex-1 bg-gray-50 p-6 overflow-auto">
-          <div className="bg-white rounded-3xl shadow-xl border flex min-h-[700px]">
-            <div className="w-20 border-r bg-gray-50/50"><div className="h-16 border-b border-gray-100"></div>
-              {Array.from({ length: 15 }, (_, i) => i + 8).map(h => <div key={h} className="h-16 border-b border-gray-100 text-[10px] font-black text-gray-300 text-center pt-2">{h}:00</div>)}
-            </div>
-            <div className="flex-1 flex overflow-x-auto">
-              {(viewMode === 'day' ? spaces : Array.from({length: 7}, (_, i) => addDays(startOfWeek(currentDate, {weekStartsOn: 1}), i))).map((item, idx) => (
-                <div key={idx} className="flex-1 min-w-[150px] border-r border-gray-100 last:border-r-0 relative">
-                  <div className="h-16 border-b border-gray-100 flex items-center justify-center font-black text-[10px] uppercase bg-gray-50/30 z-10">{viewMode === 'day' ? item.name : format(item, "EEEE d", {locale: fr})}</div>
-                  <div className="relative h-full">
-                    {Array.from({ length: 15 }, (_, i) => i + 8).map(h => <div key={h} className="h-16 border-b border-gray-100"></div>)}
-                    {calendarBookings.filter(b => viewMode === 'day' ? b.space_id === item.id : isSameDay(new Date(b.start_time), item)).map(b => {
-                      const start = new Date(b.start_time); const end = new Date(b.end_time);
-                      const top = (start.getHours() + start.getMinutes()/60 - 8) * 64;
-                      const height = (end.getHours() + end.getMinutes()/60 - (start.getHours() + start.getMinutes()/60)) * 64;
-                      return (
-                        <div key={b.id} onClick={() => {setSelectedBooking(b); setIsEditing(false);}} className="absolute left-1 right-1 rounded-xl p-2 shadow-lg border-l-4 cursor-pointer hover:scale-[1.02] transition-transform z-10" style={{ top: `${top}px`, height: `${height}px`, backgroundColor: `${b.spaces?.color}20`, borderColor: b.spaces?.color }}>
-                          <p className="text-[10px] font-black truncate" style={{ color: b.spaces?.color }}>{b.user_name}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+            <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((day, i) => (
+                <div key={i} onClick={() => {setCurrentDate(day); setIsSidebarOpen(false);}} className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all cursor-pointer ${isSameDay(day, currentDate) ? 'bg-black text-white font-bold' : 'hover:bg-gray-200'} ${!isSameMonth(day, currentMonthView) ? 'text-gray-400' : ''}`}>{format(day, "d")}</div>
               ))}
             </div>
           </div>
+
+          {/* Demandes en attente */}
+          <div className="flex-1">
+            <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">En attente ({pendingBookings.length})</h2>
+            <div className="space-y-3">
+              {pendingBookings.map(b => (
+                <div key={b.id} onClick={() => openBookingModal(b)} className="p-4 rounded-2xl border border-blue-100 bg-blue-50/50 hover:border-blue-300 cursor-pointer transition-all">
+                  <span className="text-[9px] font-black px-2 py-1 rounded bg-blue-100 text-blue-700 mb-2 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
+                  <p className="font-bold text-sm">{b.user_name}</p>
+                  <p className="text-xs text-gray-500 mt-1 flex items-center"><Clock size={12} className="mr-1"/> {format(new Date(b.start_time), "d MMM HH:mm", {locale:fr})}</p>
+                </div>
+              ))}
+              {pendingBookings.length === 0 && <p className="text-xs text-gray-400 italic">Aucune demande en attente.</p>}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* ZONE PRINCIPALE */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <header className="bg-white border-b px-4 lg:px-8 py-4 flex justify-between items-center z-40 h-[89px] flex-shrink-0">
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 rounded-xl bg-gray-50 border"><Menu size={20}/></button>
+            <div className="relative hidden md:block">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" placeholder="Rechercher (nom, email...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 bg-gray-100 rounded-xl text-sm border-none w-64 focus:ring-2 focus:ring-black outline-none font-medium" />
+            </div>
+          </div>
+          <button onClick={() => supabase.auth.signOut()} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 font-bold flex items-center text-sm"><LogOut size={16} className="mr-2 hidden sm:block"/> Déconnexion</button>
+        </header>
+
+        <main className="flex-1 overflow-hidden p-4 lg:p-8 bg-gray-50">
+          {searchTerm ? (
+             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-sm p-8 overflow-auto">
+                <h2 className="text-xl font-black mb-6">Recherche: "{searchTerm}"</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredBookings.map(b => (
+                    <div key={b.id} onClick={() => openBookingModal(b)} className="p-5 border rounded-2xl cursor-pointer hover:border-black transition">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest" style={{color: b.spaces?.color}}>{b.spaces?.name}</span>
+                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded ${b.status==='pending'?'bg-blue-100 text-blue-700':'bg-green-100 text-green-700'}`}>{b.status}</span>
+                      </div>
+                      <p className="font-bold text-lg">{b.user_name}</p>
+                      <p className="text-sm text-gray-500 mb-2">{format(new Date(b.start_time), "d MMMM yyyy - HH:mm", {locale:fr})}</p>
+                    </div>
+                  ))}
+                </div>
+             </div>
+          ) : (
+            <div className="h-full w-full bg-white rounded-3xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
+              <div className="p-4 border-b bg-white flex items-center space-x-4">
+                <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200"><ChevronLeft size={18}/></button>
+                <span className="font-black text-lg capitalize">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200"><ChevronRight size={18}/></button>
+              </div>
+              <div className="flex-1 overflow-auto relative">
+                <table className="w-full border-separate border-spacing-0 min-w-[800px]">
+                  <thead>
+                    <tr className="sticky top-0 z-30">
+                      <th className="sticky left-0 z-50 bg-gray-50 border-b border-r w-20 h-16"><Clock size={16} className="mx-auto text-gray-300" /></th>
+                      {spaces.map(space => (
+                        <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r h-16 px-2"><span className="text-[10px] font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span></th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hours.map(h => (
+                      <tr key={h} className="h-16">
+                        <td className="sticky left-0 z-20 bg-gray-50 border-r border-b text-[10px] font-bold text-gray-400 text-center">{h}:00</td>
+                        {spaces.map(space => {
+                          const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
+                          return (
+                            <td key={space.id} className="border-r border-b relative p-0 h-16 bg-gray-50/10">
+                              {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
+                                <div key={b.id} onClick={() => openBookingModal(b)} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm cursor-pointer hover:scale-[1.02] transition-transform ${b.status === 'pending' ? 'opacity-70 border-dashed border-2 border-white/50' : 'opacity-100'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color }}>
+                                  {b.user_name}
+                                </div>
+                              ))}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
+      {/* MODAL ADMIN */}
       {selectedBooking && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans">
-             <div className="flex justify-between items-center mb-6"><h2 className="text-xl font-black">Étudier la demande</h2><button onClick={() => setSelectedBooking(null)} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button></div>
-             <form onSubmit={handleEditSave} className="space-y-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans max-h-[90vh] overflow-y-auto">
+             <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-black uppercase tracking-tight">{isEditing ? "Modifier" : "Étudier la demande"}</h2>
+                <button onClick={() => {setSelectedBooking(null); setIsEditing(false);}} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-5 h-5"/></button>
+             </div>
+             
+             <form onSubmit={handleEditSave} className="space-y-5">
                 {isEditing ? (
                   <>
-                    <div><label className="text-[10px] font-black uppercase text-gray-400">Nom</label><input className="w-full border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-black" value={selectedBooking.user_name} onChange={e => setSelectedBooking({...selectedBooking, user_name: e.target.value})} /></div>
-                    <div><label className="text-[10px] font-black uppercase text-gray-400">Espace</label><select className="w-full border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-black" value={selectedBooking.space_id} onChange={e => setSelectedBooking({...selectedBooking, space_id: e.target.value})}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-                    <div><label className="text-[10px] font-black uppercase text-gray-400">Raison</label><textarea className="w-full border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-black" value={selectedBooking.reason} onChange={e => setSelectedBooking({...selectedBooking, reason: e.target.value})} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div><label className="text-[10px] font-black uppercase text-gray-400">Demandeur</label><input required className="w-full border rounded-xl p-3 bg-gray-50 font-bold" value={editData.user_name} onChange={e => setEditData({...editData, user_name: e.target.value})} /></div>
+                      <div><label className="text-[10px] font-black uppercase text-gray-400">Espace</label><select className="w-full border rounded-xl p-3 bg-gray-50 font-bold" value={editData.space_id} onChange={e => setEditData({...editData, space_id: e.target.value})}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div><label className="text-[10px] font-black uppercase text-gray-400">Début</label><input type="time" required className="w-full border rounded-xl p-3 bg-gray-50 font-bold" value={editData.start_time} onChange={e => setEditData({...editData, start_time: e.target.value})} /></div>
+                      <div><label className="text-[10px] font-black uppercase text-gray-400">Fin</label><input type="time" required className="w-full border rounded-xl p-3 bg-gray-50 font-bold" value={editData.end_time} onChange={e => setEditData({...editData, end_time: e.target.value})} /></div>
+                    </div>
+                    <div><label className="text-[10px] font-black uppercase text-gray-400">Raison de la demande</label><textarea required className="w-full border rounded-xl p-3 bg-gray-50 font-bold" value={editData.reason} onChange={e => setEditData({...editData, reason: e.target.value})} /></div>
                   </>
                 ) : (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100"><p className="font-bold text-lg">{selectedBooking.user_name}</p><p className="text-sm text-gray-500">{selectedBooking.user_phone} • {selectedBooking.user_email}</p></div>
-                    <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 text-blue-900 text-sm"><strong>Motif :</strong> {selectedBooking.reason}</div>
+                    <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                      <div className="flex justify-between items-start mb-2"><p className="font-black text-xl">{selectedBooking.user_name}</p><span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-white rounded shadow-sm border">{selectedBooking.spaces?.name}</span></div>
+                      <p className="text-sm font-bold text-gray-600">{format(new Date(selectedBooking.start_time), "EEEE d MMMM yyyy", {locale:fr})} • {format(new Date(selectedBooking.start_time), "HH:mm")} - {format(new Date(selectedBooking.end_time), "HH:mm")}</p>
+                      <p className="text-xs text-gray-400 mt-2">{selectedBooking.user_phone} • {selectedBooking.user_email}</p>
+                    </div>
+                    <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 text-blue-900 text-sm"><strong className="block mb-1 uppercase text-[10px] text-blue-500">Motif :</strong> {selectedBooking.reason}</div>
                   </div>
                 )}
-                <div className="grid grid-cols-3 gap-3 pt-6">
-                  <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-bold text-xs flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-1"/> Refuser</button>
-                  <button type="button" onClick={() => setIsEditing(!isEditing)} className="p-4 bg-gray-100 text-gray-600 rounded-2xl font-bold text-xs flex flex-col items-center hover:bg-gray-200 transition"><Edit3 className="w-5 h-5 mb-1"/> {isEditing ? "Annuler" : "Modifier"}</button>
+                
+                {/* Champ d'action Admin (Message envoyé au client) */}
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400 mb-1 block">Motif Admin (Envoyé par e-mail)</label>
+                  <textarea placeholder="Ex: Réservation validée, mais attention à bien éteindre en partant..." className="w-full border rounded-xl p-3 bg-white focus:ring-2 focus:ring-black outline-none transition-all font-medium h-20" value={adminMessage} onChange={e => setAdminMessage(e.target.value)} />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 pt-4">
+                  <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-wider text-[10px] flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-1"/> Refuser</button>
+                  <button type="button" onClick={() => setIsEditing(!isEditing)} className="p-4 bg-gray-100 text-gray-600 rounded-2xl font-black uppercase tracking-wider text-[10px] flex flex-col items-center hover:bg-gray-200 transition"><Edit3 className="w-5 h-5 mb-1"/> {isEditing ? "Annuler" : "Modifier"}</button>
                   {isEditing ? (
-                    <button type="submit" className="p-4 bg-black text-white rounded-2xl font-bold text-xs flex flex-col items-center shadow-xl hover:bg-gray-800 transition"><Save className="w-5 h-5 mb-1"/> Sauver</button>
+                    <button type="submit" className="p-4 bg-black text-white rounded-2xl font-black uppercase tracking-wider text-[10px] flex flex-col items-center shadow-xl hover:bg-gray-800 transition"><Save className="w-5 h-5 mb-1"/> Sauver</button>
                   ) : (
-                    <button type="button" onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className="p-4 bg-green-500 text-white rounded-2xl font-bold text-xs flex flex-col items-center shadow-lg shadow-green-500/30 hover:bg-green-600 transition"><Check className="w-5 h-5 mb-1"/> Valider</button>
+                    <button type="button" onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className="p-4 bg-green-500 text-white rounded-2xl font-black uppercase tracking-wider text-[10px] flex flex-col items-center shadow-lg hover:bg-green-600 transition"><Check className="w-5 h-5 mb-1"/> Valider</button>
                   )}
                 </div>
              </form>
