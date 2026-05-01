@@ -89,19 +89,12 @@ export default function Home() {
     }
   };
 
-  const selectDate = (day: Date) => {
-    if (!isBefore(day, today)) {
-      setCurrentDate(day);
-      if (window.innerWidth < 1024) setIsSidebarOpen(false); 
-    }
-  };
-
-  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
   if (!isMounted) return null;
 
+  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
+
   return (
-    /* h-screen + fixed + overflow-hidden = La page est une prison, rien ne bouge en dehors du calendrier */
-    <div className="fixed inset-0 flex h-screen w-screen bg-gray-50 font-sans overflow-hidden select-none">
+    <div className="fixed inset-0 flex overflow-hidden bg-gray-50 font-sans">
       
       {/* 1. SIDEBAR */}
       <aside className={`
@@ -115,124 +108,139 @@ export default function Home() {
             Réservation <br/><span className="text-gray-500">de salle</span>
           </h1>
         </div>
-
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 overflow-y-auto">
+          {/* Mini Calendrier simplifié pour le test */}
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-              <div className="flex space-x-1">
-                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md"><ChevronLeft className="w-4 h-4" /></button>
-                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md"><ChevronRight className="w-4 h-4" /></button>
-              </div>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2">
-              {['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {eachDayOfInterval({ start: startOfWeek(startOfMonth(currentMonthView), { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(currentMonthView), { weekStartsOn: 1 }) }).map((day, i) => {
-                const isSelected = isSameDay(day, currentDate);
-                const isPast = isBefore(day, today);
-                return (
-                  <div key={i} onClick={() => selectDate(day)} className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium cursor-pointer transition-all ${isPast ? 'text-gray-200 cursor-not-allowed' : isSelected ? 'bg-black text-white' : 'hover:bg-gray-200 text-gray-700'}`}>
+             <p className="text-xs font-bold text-center mb-2 capitalize">{format(currentDate, "MMMM yyyy", { locale: fr })}</p>
+             <div className="grid grid-cols-7 gap-1 text-[10px] text-center text-gray-400 font-bold mb-2">
+                {['L','M','M','J','V','S','D'].map(d => <div key={d}>{d}</div>)}
+             </div>
+             <div className="grid grid-cols-7 gap-1">
+                {eachDayOfInterval({ 
+                  start: startOfWeek(startOfMonth(currentMonthView), {weekStartsOn: 1}), 
+                  end: endOfWeek(endOfMonth(currentMonthView), {weekStartsOn: 1}) 
+                }).map((day, i) => (
+                  <div key={i} onClick={() => !isBefore(day, today) && setCurrentDate(day)} className={`h-7 flex items-center justify-center rounded-lg text-[10px] cursor-pointer ${isSameDay(day, currentDate) ? 'bg-black text-white' : isBefore(day, today) ? 'text-gray-200' : 'hover:bg-gray-200'}`}>
                     {format(day, "d")}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+             </div>
           </div>
         </div>
       </aside>
 
-      {/* 2. ZONE PRINCIPALE */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen">
+      {/* 2. MAIN CONTENT */}
+      <div className="flex-1 flex flex-col min-w-0">
         
-        <header className="bg-white border-b px-4 lg:px-8 py-4 flex justify-between items-center h-20 flex-shrink-0 z-50">
+        <header className="h-20 bg-white border-b px-8 flex items-center justify-between z-40 flex-shrink-0">
           <div className="flex items-center space-x-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 rounded-xl bg-gray-50 border"><Menu className="w-5 h-5"/></button>
-            <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className={`p-2 rounded-xl bg-gray-50 ${!isSameDay(currentDate, today) ? 'hover:bg-gray-100' : 'opacity-20'}`}><ChevronLeft className="w-5 h-5"/></button>
-            <span className="text-lg font-black capitalize">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 rounded-xl bg-gray-50 hover:bg-gray-100"><ChevronRight className="w-5 h-5"/></button>
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2"><Menu/></button>
+            <div className="flex items-center space-x-2">
+              <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-lg"><ChevronLeft size={18}/></button>
+              <span className="font-bold capitalize text-sm lg:text-base">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-lg"><ChevronRight size={18}/></button>
+            </div>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-black text-white px-6 py-2.5 rounded-2xl font-bold flex items-center shadow-lg"><Plus className="w-5 h-5 mr-2" /> Demander</button>
+          <button onClick={() => setIsModalOpen(true)} className="bg-black text-white px-6 py-2 rounded-xl font-bold text-sm">Réserver</button>
         </header>
 
-        {/* C'est ici que l'on fixe le scroll : h-full sur main + overflow-auto sur le div enfant */}
-        <main className="flex-1 min-h-0 p-4 lg:p-8 bg-gray-100/50 relative">
-          <div className="h-full w-full bg-white rounded-3xl border border-gray-200 shadow-sm overflow-auto overscroll-none relative">
+        {/* LA ZONE DE GRILLE - ON UTILISE DES CLASSES CSS "STRICTES" */}
+        <div className="flex-1 overflow-hidden p-4 lg:p-8">
+          <div className="h-full w-full bg-white rounded-3xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
             
-            <div className="inline-flex min-w-full items-start">
-              
-              {/* HEURES FIGÉES (Sticky Left) */}
-              <div className="w-16 lg:w-20 flex-shrink-0 sticky left-0 z-40 bg-gray-50 border-r border-gray-100">
-                <div className="h-16 border-b border-gray-100 sticky top-0 bg-gray-100 z-50 flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-gray-400"/>
-                </div>
-                {hours.map(h => <div key={h} className="h-16 border-b border-gray-100 text-center text-[10px] font-black text-gray-300 pt-3">{h}:00</div>)}
-              </div>
-
-              {/* SALLES FIGÉES (Sticky Top) */}
-              <div className="flex flex-1">
-                {spaces.map(space => {
-                  const spaceBookings = bookings.filter(b => b.space_id === space.id);
-                  return (
-                    <div key={space.id} className="min-w-[140px] flex-1 border-r border-gray-100 last:border-r-0">
-                      
-                      <div className="h-16 border-b border-gray-100 sticky top-0 z-30 bg-white/95 backdrop-blur-sm flex items-center justify-center px-2 text-center">
-                        <span className="text-[10px] font-black uppercase tracking-widest truncate" style={{ color: space.color }}>{space.name}</span>
-                      </div>
-
-                      <div className="relative">
-                        {hours.map(h => {
-                          const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                          const isPast = (new Date(currentDate).setHours(h)) < new Date().getTime();
-                          return (
-                            <div key={h} onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} 
-                               className={`h-16 border-b border-gray-100 flex items-center justify-center group ${isOccupied || isPast ? 'bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
-                              {!isOccupied && !isPast && <Plus className="w-4 h-4 text-gray-200 opacity-0 group-hover:opacity-100" />}
+            {/* LE WRAPPER QUI SCROLLE */}
+            <div className="flex-1 overflow-auto relative">
+              <table className="w-full border-collapse table-fixed min-w-max">
+                <thead>
+                  <tr className="sticky top-0 z-30">
+                    {/* Coin supérieur gauche */}
+                    <th className="sticky left-0 z-40 bg-gray-100 border-b border-r border-gray-200 w-16 lg:w-20 h-16">
+                      <Clock size={16} className="mx-auto text-gray-400" />
+                    </th>
+                    {/* Noms des salles */}
+                    {spaces.map(space => (
+                      <th key={space.id} className="bg-white/95 backdrop-blur border-b border-r border-gray-200 h-16 px-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>
+                          {space.name}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {hours.map(h => (
+                    <tr key={h} className="h-16">
+                      {/* Colonne des heures figée à gauche */}
+                      <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-300 text-center">
+                        {h}:00
+                      </td>
+                      {/* Cellules de réservation */}
+                      {spaces.map(space => {
+                        const spaceBookings = bookings.filter(b => b.space_id === space.id);
+                        const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
+                        const isPast = (new Date(currentDate).setHours(h)) < new Date().getTime();
+                        
+                        return (
+                          <td key={space.id} className="border-r border-b border-gray-100 relative p-0">
+                            <div 
+                              onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)}
+                              className={`w-full h-full flex items-center justify-center transition-colors ${isOccupied || isPast ? 'bg-gray-50/30 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 group'}`}
+                            >
+                              {!isOccupied && !isPast && <Plus size={14} className="text-gray-200 opacity-0 group-hover:opacity-100" />}
                             </div>
-                          );
-                        })}
 
-                        {spaceBookings.map(b => {
-                          const start = new Date(b.start_time); const end = new Date(b.end_time);
-                          const top = (start.getHours() + start.getMinutes()/60 - 8) * 64;
-                          const height = (end.getHours() + end.getMinutes()/60 - (start.getHours() + start.getMinutes()/60)) * 64;
-                          return (
-                            <div key={b.id} className={`absolute inset-x-1 rounded-xl p-2 shadow-sm border pointer-events-none ${b.status === 'pending' ? 'opacity-60 border-dashed' : ''}`}
-                               style={{ top: `${top}px`, height: `${height}px`, backgroundColor: space.color, borderColor: 'rgba(0,0,0,0.1)' }}>
-                              <p className="text-[10px] font-black text-white truncate">{b.user_name}</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                            {/* Overlay des réservations */}
+                            {spaceBookings.map(b => {
+                              const start = new Date(b.start_time);
+                              if (start.getHours() === h) {
+                                const end = new Date(b.end_time);
+                                const duration = end.getHours() - start.getHours();
+                                return (
+                                  <div 
+                                    key={b.id}
+                                    className="absolute inset-x-1 z-10 rounded-xl p-2 shadow-sm border border-black/5 pointer-events-none"
+                                    style={{ 
+                                      top: '4px', 
+                                      height: `calc(${duration * 64}px - 8px)`, 
+                                      backgroundColor: space.color,
+                                      opacity: b.status === 'pending' ? 0.6 : 1
+                                    }}
+                                  >
+                                    <p className="text-[9px] font-black text-white truncate leading-tight">{b.user_name}</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </main>
+        </div>
       </div>
 
-      {/* MODALS */}
+      {/* MODAL SIMPLIFIÉ POUR ÉVITER LES BUGS */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-black">Réservation</h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full"><X/></button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Demande de réservation</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-gray-100 rounded-full"><X size={20}/></button>
             </div>
-            <form onSubmit={handleBookingSubmit} className="p-6 space-y-4">
-               <div><label className="text-[10px] font-black text-gray-400 uppercase">Espace</label>
-               <select className="w-full border rounded-xl p-3 bg-gray-50" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-               <div className="flex space-x-4">
-                 <div className="flex-1"><label className="text-[10px] font-black text-gray-400 uppercase">Début</label><input type="time" className="w-full border rounded-xl p-3" value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} /></div>
-                 <div className="flex-1"><label className="text-[10px] font-black text-gray-400 uppercase">Fin</label><input type="time" className="w-full border rounded-xl p-3" value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} /></div>
-               </div>
-               <div><label className="text-[10px] font-black text-gray-400 uppercase">Nom Complet</label><input type="text" required className="w-full border rounded-xl p-3" value={formData.user_name} onChange={(e) => setFormData({...formData, user_name: e.target.value})} /></div>
-               <div><label className="text-[10px] font-black text-gray-400 uppercase">E-mail</label><input type="email" required className="w-full border rounded-xl p-3" value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} /></div>
-               <div><label className="text-[10px] font-black text-gray-400 uppercase">Raison</label><textarea required className="w-full border rounded-xl p-3 h-20" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} /></div>
-               <button type="submit" className="w-full bg-black text-white font-black py-4 rounded-2xl shadow-xl">Envoyer la demande</button>
+            <form onSubmit={handleBookingSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <input type="time" className="border rounded-xl p-3" value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} />
+                <input type="time" className="border rounded-xl p-3" value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} />
+              </div>
+              <input placeholder="Votre nom" className="w-full border rounded-xl p-3" value={formData.user_name} onChange={(e) => setFormData({...formData, user_name: e.target.value})} required />
+              <input placeholder="Email" type="email" className="w-full border rounded-xl p-3" value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} required />
+              <textarea placeholder="Raison" className="w-full border rounded-xl p-3 h-20" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} required />
+              <button className="w-full bg-black text-white py-4 rounded-2xl font-bold">Envoyer</button>
             </form>
           </div>
         </div>
