@@ -3,73 +3,95 @@ import { NextResponse } from 'next/server';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const formatGoogleDate = (date: Date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "");
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { type, user_name, user_email, space_name, start_time, reason, booking_id, admin_message } = body;
+    const { type, user_name, user_email, space_name, space_color = "#111827", start_time, end_time, reason, booking_id, admin_message } = body;
 
     const BASE_URL = "https://home-booking-sigma.vercel.app"; 
     const ADMIN_EMAIL = 'jonasdellomo@gmail.com'; 
-    const LOGO_HTML = `<div style="text-align: center; margin-bottom: 20px;"><img src="${BASE_URL}/logo.png" alt="Home Réservation" style="height: 50px; max-width: 100%; object-fit: contain;" /></div>`;
+    const LOGO_URL = `${BASE_URL}/logo.png`;
 
-    if (type === 'NEW_REQUEST') {
-      return NextResponse.json(await resend.emails.send({
-        from: 'Home Réservation <onboarding@resend.dev>',
-        to: [ADMIN_EMAIL],
-        subject: `🔔 Nouvelle demande : ${space_name}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 24px; border-radius: 16px; margin: 0 auto;">
-            ${LOGO_HTML}
-            <h2 style="color: #111; margin-bottom: 20px; text-align: center;">Nouvelle demande</h2>
-            <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
-              <p><strong>Qui :</strong> ${user_name}</p>
-              <p><strong>Salle :</strong> ${space_name}</p>
-              <p><strong>Horaire :</strong> ${new Date(start_time).toLocaleString('fr-FR')}</p>
-              <p><strong>Motif :</strong> ${reason}</p>
-            </div>
-            <div style="text-align: center;">
-              <a href="${BASE_URL}/admin?action=validate&id=${booking_id}" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display:inline-block; margin-right: 10px;">✅ Valider</a>
-              <a href="${BASE_URL}/admin" style="background: #000; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display:inline-block;">🔍 Voir</a>
-            </div>
+    const startDate = new Date(start_time);
+    const endDate = end_time ? new Date(end_time) : new Date(startDate.getTime() + 60 * 60 * 1000);
+    
+    const googleUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Réservation : " + space_name)}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${encodeURIComponent("Motif : " + reason + (admin_message ? "\n\nNote de l'admin : " + admin_message : ""))}&location=${encodeURIComponent(space_name)}&sf=true&output=xml`;
+    const icsUrl = `https://ics.agical.io/?subject=${encodeURIComponent("Réservation : " + space_name)}&dtstart=${startDate.toISOString()}&dtend=${endDate.toISOString()}&description=${encodeURIComponent(reason)}&location=${encodeURIComponent(space_name)}&reminder=10`;
+    const cancelUrl = `${BASE_URL}/gerer?id=${booking_id}`;
+
+    const wrapEmail = (title: string, badgeColor: string, content: string) => `
+      <div style="background-color: #f9fafb; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #f3f4f6;">
+          <div style="padding: 40px 40px 30px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+            <img src="${LOGO_URL}" alt="Home Réservation" style="height: 52px; margin-bottom: 24px;" />
+            <h1 style="margin: 0; font-size: 24px; font-weight: 900; color: #111827; text-transform: uppercase;">${title}</h1>
           </div>
-        `
+          <div style="padding: 40px;">
+            <div style="display: inline-block; background-color: ${badgeColor}15; border: 1px solid ${badgeColor}30; color: ${badgeColor}; padding: 6px 16px; border-radius: 100px; font-size: 11px; font-weight: 900; text-transform: uppercase; margin-bottom: 24px;">Salle : ${space_name}</div>
+            ${content}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // A. NOTIFICATION ADMIN NOUVELLE DEMANDE
+    if (type === 'NEW_REQUEST') {
+      const adminContent = `
+        <p style="font-size: 16px; color: #374151;">Demande soumise par <strong>${user_name}</strong>.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 30px 0; background: #f9fafb; border-radius: 16px; overflow: hidden;">
+          <tr><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold; width: 30%;">Date & Heure</td><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: bold;">${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</td></tr>
+          <tr><td style="padding: 16px; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold;">Motif</td><td style="padding: 16px; color: #111827;">${reason}</td></tr>
+        </table>
+        <div style="text-align: center; margin-top: 40px;">
+          <a href="${BASE_URL}/admin?action=validate&id=${booking_id}" style="background: #10b981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; display: inline-block; margin-right: 12px;">Valider</a>
+          <a href="${BASE_URL}/admin" style="background: #111827; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; display: inline-block;">Admin</a>
+        </div>
+      `;
+      return NextResponse.json(await resend.emails.send({
+        from: 'Home Réservation <onboarding@resend.dev>', to: [ADMIN_EMAIL],
+        subject: `🔔 Demande : ${space_name} par ${user_name}`, html: wrapEmail("Nouvelle Demande", space_color, adminContent)
       }));
     }
 
-    let subject = "";
-    let content = "";
-    let color = "#000";
+    // B. NOTIFICATION ADMIN QUAND L'UTILISATEUR ANNULE LUI-MÊME
+    if (type === 'USER_CANCELLED') {
+      const adminCancelContent = `
+        <p style="font-size: 16px; color: #374151;"><strong>${user_name}</strong> a annulé sa réservation.</p>
+        <p style="font-size: 16px; color: #374151;">Le créneau du <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a été libéré sur le calendrier.</p>
+        <div style="text-align: center; margin-top: 40px;">
+          <a href="${BASE_URL}/admin" style="background: #111827; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; display: inline-block;">Voir le Calendrier</a>
+        </div>
+      `;
+      return NextResponse.json(await resend.emails.send({
+        from: 'Home Réservation <onboarding@resend.dev>', to: [ADMIN_EMAIL],
+        subject: `❌ Annulation : ${space_name} par ${user_name}`, html: wrapEmail("Réservation Annulée", space_color, adminCancelContent)
+      }));
+    }
 
-    const adminNoteHtml = admin_message ? `<div style="background: #fdf2f8; border: 1px solid #fbcfe8; padding: 15px; border-radius: 8px; margin-top: 20px;"><p style="margin:0; color: #9d174d; font-size: 14px;"><strong>Motif de l'administration :</strong><br/>${admin_message}</p></div>` : "";
+    // C. NOTIFICATIONS UTILISATEUR
+    let subject = ""; let content = ""; let emailTitle = "";
+    const adminNoteHtml = admin_message ? `<div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px 20px; border-radius: 0 12px 12px 0; margin: 30px 0;"><p style="margin: 0; color: #1e3a8a; font-size: 11px; text-transform: uppercase; font-weight: 900; margin-bottom: 6px;">Message de l'administration</p><p style="margin: 0; color: #1d4ed8; font-size: 15px;">${admin_message}</p></div>` : "";
+    const agendaButtons = `<div style="margin-top: 40px; text-align: center; border-top: 1px solid #f3f4f6; padding-top: 30px;"><p style="margin-bottom: 20px; font-size: 12px; font-weight: 900; color: #6b7280; text-transform: uppercase;">Ajouter à mon agenda</p><a href="${googleUrl}" style="background: white; color: #374151; border: 1px solid #e5e7eb; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; margin: 0 8px 16px 0; font-size: 13px;">Google Calendar</a><a href="${icsUrl}" style="background: white; color: #374151; border: 1px solid #e5e7eb; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; margin: 0 0 16px 0; font-size: 13px;">Apple / Outlook</a></div>`;
+    const cancelLink = booking_id ? `<div style="text-align: center; margin-top: 20px;"><a href="${cancelUrl}" style="color: #ef4444; font-size: 12px; text-decoration: underline;">Annuler cette réservation</a></div>` : "";
 
     if (type === 'CONFIRMED') {
-      subject = "✨ Bonne nouvelle : votre réservation est validée !";
-      color = "#10b981";
-      content = `<h2 style="color: ${color}; text-align: center;">C'est confirmé !</h2><p>Bonjour ${user_name}, nous avons le plaisir de vous informer que votre demande de réservation pour la <strong>${space_name}</strong> a été validée.</p>${adminNoteHtml}`;
+      emailTitle = "Réservation Confirmée"; subject = `✨ Votre réservation est validée (${space_name})`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a bien été validée.</p>${adminNoteHtml}${agendaButtons}${cancelLink}`;
     } else if (type === 'DELETED') {
-      subject = "Info concernant votre demande de réservation";
-      color = "#ef4444";
-      content = `<h2 style="color: ${color}; text-align: center;">Bonjour ${user_name},</h2><p>Nous avons bien reçu votre demande, mais nous ne pouvons malheureusement pas la valider pour le moment.</p>${adminNoteHtml}`;
+      emailTitle = "Réservation Annulée"; subject = `Info concernant votre demande (${space_name})`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Nous avons bien reçu votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'long' })}</strong>, mais nous ne pouvons malheureusement pas la maintenir.</p>${adminNoteHtml}<div style="background: #fef2f2; border: 1px solid #fecaca; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b91c1c; font-size: 14px; text-align: center;"><strong>⚠️ Attention :</strong> Si cet événement avait été ajouté à votre calendrier personnel, merci de le supprimer manuellement.</p></div>`;
     } else if (type === 'MODIFIED') {
-      subject = "⚠️ Votre réservation a été ajustée";
-      color = "#f59e0b";
-      content = `<h2 style="color: ${color}; text-align: center;">Réservation validée (avec ajustements)</h2><p>Bonjour ${user_name}, votre réservation a été validée mais modifiée par l'administration.</p>${adminNoteHtml}`;
+      emailTitle = "Réservation Ajustée"; subject = `⚠️ Votre réservation a été modifiée (${space_name})`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre réservation a bien été traitée, mais l'administration a dû y apporter des ajustements.</p>${adminNoteHtml}<div style="background: #fffbeb; border: 1px solid #fde68a; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b45309; font-size: 14px; text-align: center;"><strong>🔄 Rappel Agenda :</strong> N'oubliez pas de mettre à jour votre calendrier personnel.</p></div>${agendaButtons}${cancelLink}`;
     }
 
     return NextResponse.json(await resend.emails.send({
-      from: 'Home Réservation <onboarding@resend.dev>',
-      to: [user_email],
-      subject: subject,
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; padding: 20px; color: #333; margin: 0 auto; border: 1px solid #eee; border-radius: 12px;">
-          ${LOGO_HTML}
-          ${content}
-          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-          <p style="font-size: 14px; text-align: center;"><strong>Rappel :</strong> ${space_name} le ${new Date(start_time).toLocaleString('fr-FR')}</p>
-        </div>
-      `
+      from: 'Home Réservation <onboarding@resend.dev>', to: [user_email],
+      subject: subject, html: wrapEmail(emailTitle, space_color, content)
     }));
   } catch (error) {
-    return NextResponse.json({ error: "Erreur lors de l'envoi" }, { status: 500 });
+    return NextResponse.json({ error: "Erreur" }, { status: 500 });
   }
 }
