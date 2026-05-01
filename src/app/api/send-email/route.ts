@@ -2,7 +2,6 @@ import { Resend } from 'resend';
 import { NextResponse } from 'next/server';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 const formatGoogleDate = (date: Date) => date.toISOString().replace(/-|:|\.\d\d\d/g, "");
 
 export async function POST(req: Request) {
@@ -36,7 +35,6 @@ export async function POST(req: Request) {
       </div>
     `;
 
-    // A. NOTIFICATION ADMIN NOUVELLE DEMANDE
     if (type === 'NEW_REQUEST') {
       const adminContent = `
         <p style="font-size: 16px; color: #374151;">Demande soumise par <strong>${user_name}</strong>.</p>
@@ -55,36 +53,29 @@ export async function POST(req: Request) {
       }));
     }
 
-    // B. NOTIFICATION ADMIN QUAND L'UTILISATEUR ANNULE LUI-MÊME
     if (type === 'USER_CANCELLED') {
-      const adminCancelContent = `
-        <p style="font-size: 16px; color: #374151;"><strong>${user_name}</strong> a annulé sa réservation.</p>
-        <p style="font-size: 16px; color: #374151;">Le créneau du <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a été libéré sur le calendrier.</p>
-        <div style="text-align: center; margin-top: 40px;">
-          <a href="${BASE_URL}/admin" style="background: #111827; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; display: inline-block;">Voir le Calendrier</a>
-        </div>
-      `;
+      const adminCancelContent = `<p style="font-size: 16px; color: #374151;"><strong>${user_name}</strong> a annulé sa réservation.</p><p style="font-size: 16px; color: #374151;">Le créneau du <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a été libéré.</p>`;
       return NextResponse.json(await resend.emails.send({
         from: 'Home Réservation <onboarding@resend.dev>', to: [ADMIN_EMAIL],
         subject: `❌ Annulation : ${space_name} par ${user_name}`, html: wrapEmail("Réservation Annulée", space_color, adminCancelContent)
       }));
     }
 
-    // C. NOTIFICATIONS UTILISATEUR
     let subject = ""; let content = ""; let emailTitle = "";
     const adminNoteHtml = admin_message ? `<div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px 20px; border-radius: 0 12px 12px 0; margin: 30px 0;"><p style="margin: 0; color: #1e3a8a; font-size: 11px; text-transform: uppercase; font-weight: 900; margin-bottom: 6px;">Message de l'administration</p><p style="margin: 0; color: #1d4ed8; font-size: 15px;">${admin_message}</p></div>` : "";
     const agendaButtons = `<div style="margin-top: 40px; text-align: center; border-top: 1px solid #f3f4f6; padding-top: 30px;"><p style="margin-bottom: 20px; font-size: 12px; font-weight: 900; color: #6b7280; text-transform: uppercase;">Ajouter à mon agenda</p><a href="${googleUrl}" style="background: white; color: #374151; border: 1px solid #e5e7eb; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; margin: 0 8px 16px 0; font-size: 13px;">Google Calendar</a><a href="${icsUrl}" style="background: white; color: #374151; border: 1px solid #e5e7eb; padding: 12px 20px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; margin: 0 0 16px 0; font-size: 13px;">Apple / Outlook</a></div>`;
     const cancelLink = booking_id ? `<div style="text-align: center; margin-top: 20px;"><a href="${cancelUrl}" style="color: #ef4444; font-size: 12px; text-decoration: underline;">Annuler cette réservation</a></div>` : "";
+    const legalFooter = `<div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 11px; color: #9ca3af; text-align: center;"><p>Conformément à votre engagement lors de la réservation, nous vous rappelons que vous êtes tenus de respecter nos <a href="${BASE_URL}/cgv" style="color: #6b7280; text-decoration: underline;">conditions d'utilisation</a> des locaux.</p></div>`;
 
     if (type === 'CONFIRMED') {
       emailTitle = "Réservation Confirmée"; subject = `✨ Votre réservation est validée (${space_name})`;
-      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a bien été validée.</p>${adminNoteHtml}${agendaButtons}${cancelLink}`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a bien été validée.</p>${adminNoteHtml}${agendaButtons}${cancelLink}${legalFooter}`;
     } else if (type === 'DELETED') {
       emailTitle = "Réservation Annulée"; subject = `Info concernant votre demande (${space_name})`;
       content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Nous avons bien reçu votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'long' })}</strong>, mais nous ne pouvons malheureusement pas la maintenir.</p>${adminNoteHtml}<div style="background: #fef2f2; border: 1px solid #fecaca; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b91c1c; font-size: 14px; text-align: center;"><strong>⚠️ Attention :</strong> Si cet événement avait été ajouté à votre calendrier personnel, merci de le supprimer manuellement.</p></div>`;
     } else if (type === 'MODIFIED') {
       emailTitle = "Réservation Ajustée"; subject = `⚠️ Votre réservation a été modifiée (${space_name})`;
-      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre réservation a bien été traitée, mais l'administration a dû y apporter des ajustements.</p>${adminNoteHtml}<div style="background: #fffbeb; border: 1px solid #fde68a; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b45309; font-size: 14px; text-align: center;"><strong>🔄 Rappel Agenda :</strong> N'oubliez pas de mettre à jour votre calendrier personnel.</p></div>${agendaButtons}${cancelLink}`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre réservation a bien été traitée, mais l'administration a dû y apporter des ajustements.</p>${adminNoteHtml}<div style="background: #fffbeb; border: 1px solid #fde68a; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b45309; font-size: 14px; text-align: center;"><strong>🔄 Rappel Agenda :</strong> N'oubliez pas de mettre à jour votre calendrier personnel.</p></div>${agendaButtons}${cancelLink}${legalFooter}`;
     }
 
     return NextResponse.json(await resend.emails.send({

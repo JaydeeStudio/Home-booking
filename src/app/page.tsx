@@ -8,6 +8,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Menu } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
@@ -21,7 +22,8 @@ export default function Home() {
   
   const [formData, setFormData] = useState({
     space_id: "", first_name: "", last_name: "", user_email: "", 
-    phone: "+41 ", reason: "", start_time: "10:00", end_time: "12:00"
+    phone: "+41 ", reason: "", start_time: "10:00", end_time: "12:00",
+    cgv_accepted: false
   });
 
   const today = startOfDay(new Date());
@@ -65,6 +67,8 @@ export default function Home() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.cgv_accepted) return;
+
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
     const end = new Date(currentDate); const [eh, em] = formData.end_time.split(':'); end.setHours(parseInt(eh), parseInt(em), 0);
     
@@ -98,8 +102,7 @@ export default function Home() {
 
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
 
-  const monthStart = startOfMonth(currentMonthView);
-  const monthEnd = endOfMonth(monthStart);
+  const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
   const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(monthEnd, { weekStartsOn: 1 }) });
   const weekDaysHeader = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
   const hours = Array.from({ length: 15 }, (_, i) => i + 8);
@@ -107,14 +110,29 @@ export default function Home() {
   if (!isMounted) return null;
 
   return (
-    <div className="flex h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between lg:justify-start">
+    <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
+      
+      {/* HEADER HAUT POUR MOBILE */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
+        <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer">
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Home<br/><span className="text-gray-400 text-xs">Réservation</span></h1>
+        </div>
+        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200"><Menu size={20}/></button>
+      </div>
+
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-none transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="p-6 border-b border-gray-100 hidden lg:flex items-center justify-between">
           <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
             <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
-            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Réservation</span><span className="block text-gray-400">de salle</span></h1>
+            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Home</span><span className="block text-gray-400 text-sm">Réservation</span></h1>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5"/></button>
+        </div>
+        
+        {/* Menu mobile fermeture */}
+        <div className="p-4 border-b border-gray-100 flex lg:hidden justify-between items-center bg-gray-50">
+           <span className="font-black text-sm uppercase tracking-widest text-gray-400">Navigation</span>
+           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm"><X size={16}/></button>
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto">
@@ -142,39 +160,54 @@ export default function Home() {
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b px-4 lg:px-8 py-4 flex justify-between items-center z-10 h-[89px] flex-shrink-0">
-          <div className="flex items-center space-x-2 lg:space-x-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 rounded-xl hover:bg-gray-100 bg-gray-50 border"><Menu className="w-5 h-5"/></button>
-            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`hidden sm:block p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}><ChevronLeft /></button>
-            <span className="text-sm sm:text-xl font-black lg:min-w-[200px] text-center capitalize truncate">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="hidden sm:block p-2 hover:bg-gray-100 bg-gray-50 rounded-xl transition"><ChevronRight /></button>
+      <div className="flex-1 flex flex-col min-w-0 relative bg-gray-50">
+        
+        {/* SECTION HERO D'EXPLICATION */}
+        <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
+          <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm">
+            <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-2">Bienvenue sur le portail de réservation.</h2>
+            <p className="text-gray-500 font-medium text-sm lg:text-base max-w-3xl leading-relaxed">
+              Sélectionnez une date dans le calendrier pour visualiser les disponibilités de nos salles en temps réel. Cliquez sur un créneau libre pour formuler votre demande. Chaque demande est soumise à la validation de notre administration.
+            </p>
           </div>
-          <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-4 lg:px-6 py-2.5 lg:py-3 rounded-2xl font-bold hover:bg-gray-800 transition shadow-lg shadow-black/20 flex items-center text-xs lg:text-sm"><Plus className="w-4 h-4 lg:w-5 lg:h-5 mr-1 lg:mr-2" /> Demander</button>
+        </div>
+
+        <header className="px-4 lg:px-8 py-4 flex justify-between items-center z-10 flex-shrink-0">
+          <div className="flex items-center space-x-2 lg:space-x-4 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm">
+            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}><ChevronLeft size={18}/></button>
+            <span className="text-sm sm:text-lg font-black lg:min-w-[180px] text-center capitalize truncate px-2">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 bg-gray-50 rounded-xl transition"><ChevronRight size={18}/></button>
+          </div>
+          <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-5 lg:px-8 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs"><Plus size={16} className="mr-2" /> Demander une salle</button>
         </header>
 
-        <main className="flex-1 overflow-hidden p-4 lg:p-8 relative bg-gray-50">
-          <div className="h-full w-full bg-white rounded-3xl border border-gray-200 shadow-xl flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-hidden px-4 lg:px-8 pb-4 lg:pb-8 relative">
+          <div className="h-full w-full bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col overflow-hidden">
             <div className="flex-1 overflow-auto relative scroll-smooth">
               <table className="w-full border-separate border-spacing-0 min-w-[800px]">
                 <thead>
                   <tr className="sticky top-0 z-30">
-                    <th className="sticky left-0 z-50 bg-gray-100 border-b border-r border-gray-200 w-16 lg:w-20 h-16 shadow-[2px_2px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
+                    <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20 shadow-[1px_1px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
                     {spaces.map(space => (
-                      <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-200 h-16 px-2"><span className="text-[10px] lg:text-xs font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span></th>
+                      <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight">
+                        <span className="text-[11px] lg:text-xs font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span>
+                        {/* AFFICHAGE DE LA CAPACITÉ ICI */}
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mt-1">{space.capacity ? `${space.capacity} places` : 'Capacité N/A'}</span>
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {hours.map(h => (
                     <tr key={h} className="h-16">
-                      <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center shadow-[2px_0_0_rgba(0,0,0,0.02)]">{h}:00</td>
+                      <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center shadow-[1px_0_0_rgba(0,0,0,0.02)]">{h}:00</td>
                       {spaces.map(space => {
                         const spaceBookings = bookings.filter(b => b.space_id === space.id);
                         const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                        const isPast = (new Date(currentDate).setHours(h,0,0,0)) < new Date().getTime();
+                        const slotTime = new Date(currentDate); slotTime.setHours(h, 0, 0, 0);
+                        const isPast = slotTime < new Date();
                         return (
-                          <td key={space.id} className="border-r border-b border-gray-100 relative p-0 h-16 group">
+                          <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 group">
                             <div onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} className={`w-full h-full transition-colors flex items-center justify-center ${isOccupied || isPast ? 'bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                               {isPast && !isOccupied && <span className="text-[9px] text-gray-300 font-medium opacity-50 hidden lg:block">Passé</span>}
@@ -196,6 +229,7 @@ export default function Home() {
         </main>
       </div>
 
+      {/* MODAL FORMULAIRE */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -218,7 +252,16 @@ export default function Home() {
                 <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Téléphone *</label><input type="tel" required placeholder="+41 79 123 45 67" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black" /></div>
               </div>
               <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Raison de la demande *</label><textarea required placeholder="Réunion, rencontre..." value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black h-24 resize-none" /></div>
-              <button type="submit" className="w-full bg-black text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-2 hover:scale-[1.02] transition-transform shadow-xl text-sm">Transmettre la demande</button>
+              
+              {/* CONDITIONS D'UTILISATION */}
+              <div className="flex items-start mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <input type="checkbox" required id="cgv" checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black" />
+                <label htmlFor="cgv" className="ml-3 text-xs text-gray-600 font-medium leading-relaxed">
+                  J'ai lu et j'accepte sans réserve les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link> de ces locaux.
+                </label>
+              </div>
+
+              <button type="submit" disabled={!formData.cgv_accepted} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 transition-transform shadow-xl ${formData.cgv_accepted ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
             </form>
           </div>
         </div>

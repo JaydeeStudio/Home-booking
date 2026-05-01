@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
   format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
-  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
+  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths,
+  nextSunday
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, CalendarRange } from "lucide-react";
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
@@ -25,6 +26,7 @@ export default function AdminPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [adminMessage, setAdminMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showRecurrentModal, setShowRecurrentModal] = useState(false);
   
   const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
 
@@ -57,7 +59,7 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); }};
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowRecurrentModal(false); }};
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
@@ -104,6 +106,7 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
+    if(!booking.user_email) return; // Ne pas envoyer d'email aux réservations récurrentes sans email
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
     await fetch('/api/send-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -115,9 +118,43 @@ export default function AdminPage() {
     });
   };
 
+  // FONCTION POUR BLOQUER LES DIMANCHES
+  const generateRecurringSundays = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const space_id = fd.get('space_id') as string;
+    const start_time = fd.get('start_time') as string;
+    const end_time = fd.get('end_time') as string;
+    
+    if(!space_id || !start_time || !end_time) return;
+
+    let currentSunday = nextSunday(new Date());
+    const blocks = [];
+
+    // Générer pour les 52 prochains dimanches
+    for (let i = 0; i < 52; i++) {
+      const st = new Date(currentSunday); const [sh, sm] = start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
+      const et = new Date(currentSunday); const [eh, em] = end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
+      
+      blocks.push({
+        space_id,
+        user_name: "🔐 Blocage Récurrent (Admin)",
+        reason: "Créneau bloqué automatiquement pour les activités du dimanche.",
+        start_time: st.toISOString(),
+        end_time: et.toISOString(),
+        status: 'confirmed'
+      });
+      currentSunday = addDays(currentSunday, 7);
+    }
+
+    const { error } = await supabase.from("bookings").insert(blocks);
+    if(error) alert("Erreur lors de la création des blocs.");
+    else { alert("52 dimanches bloqués avec succès !"); setShowRecurrentModal(false); fetchBookings(); }
+  };
+
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
 
-  const filteredBookings = bookings.filter(b => (b.user_name + b.user_email + b.reason + (b.spaces?.name || "")).toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredBookings = bookings.filter(b => (b.user_name + (b.user_email||"") + b.reason + (b.spaces?.name || "")).toLowerCase().includes(searchTerm.toLowerCase()));
   const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
 
   const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
@@ -136,14 +173,28 @@ export default function AdminPage() {
   );
 
   return (
-    <div className="flex h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
+    <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
+      
+      {/* HEADER HAUT POUR MOBILE */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
+        <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer">
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Admin<br/><span className="text-gray-400 text-xs">Panel</span></h1>
+        </div>
+        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200"><Menu size={20}/></button>
+      </div>
+
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-none transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center space-x-3 cursor-pointer group" onClick={returnHome}>
-            <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
-            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Admin</span><span className="block text-gray-400">Panel</span></h1>
+        <div className="p-6 border-b border-gray-100 hidden lg:flex items-center justify-between">
+          <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
+            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
+            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Admin</span><span className="block text-gray-400 text-sm">Panel</span></h1>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 rounded-full hover:bg-gray-100"><X size={20}/></button>
+        </div>
+
+        <div className="p-4 border-b border-gray-100 flex lg:hidden justify-between items-center bg-gray-50">
+           <span className="font-black text-sm uppercase tracking-widest text-gray-400">Navigation Admin</span>
+           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm"><X size={16}/></button>
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto flex flex-col">
@@ -180,22 +231,24 @@ export default function AdminPage() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 h-[89px] flex-shrink-0">
+        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 flex-shrink-0">
           <div className="flex items-center space-x-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 rounded-xl bg-gray-50 border"><Menu size={20}/></button>
+            <button onClick={() => setShowRecurrentModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-sm transition-colors border border-indigo-100"><CalendarRange size={16} className="mr-2"/> Bloquer les dimanches</button>
+          </div>
+          <div className="flex items-center space-x-4">
             <div className="relative hidden md:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Rechercher (nom, email...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-72 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
+              <input type="text" placeholder="Recherche (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
             </div>
+            <button onClick={() => supabase.auth.signOut()} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors"><LogOut size={16} className="mr-2 hidden sm:block"/> Déconnexion</button>
           </div>
-          <button onClick={() => supabase.auth.signOut()} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors"><LogOut size={16} className="mr-2 hidden sm:block"/> Déconnexion</button>
         </header>
 
         <main className="flex-1 overflow-hidden p-4 lg:p-8 bg-gray-50">
           {searchTerm ? (
              <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-xl p-8 overflow-auto">
                 <div className="flex items-center justify-between mb-8 border-b pb-4">
-                  <h2 className="text-2xl font-black">Résultats pour "{searchTerm}"</h2>
+                  <h2 className="text-2xl font-black">Résultats : "{searchTerm}"</h2>
                   <button onClick={() => setSearchTerm("")} className="text-sm font-bold bg-gray-100 px-4 py-2 rounded-xl hover:bg-gray-200">Effacer</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -210,7 +263,6 @@ export default function AdminPage() {
                       <p className="text-xs text-gray-400 line-clamp-2">{b.reason}</p>
                     </div>
                   ))}
-                  {filteredBookings.length === 0 && <p className="text-gray-400 font-medium col-span-full">Aucun résultat trouvé.</p>}
                 </div>
              </div>
           ) : (
@@ -256,11 +308,33 @@ export default function AdminPage() {
         </main>
       </div>
 
+      {/* MODAL BLOCAGE RECURRENT */}
+      {showRecurrentModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowRecurrentModal(false)}}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900">Blocage Récurrent</h2>
+              <button onClick={() => setShowRecurrentModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5"/></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-6 font-medium">Cet outil va bloquer automatiquement la salle choisie pour les <strong>52 prochains dimanches</strong>. Vous pourrez supprimer ces blocs individuellement dans le calendrier si besoin.</p>
+            <form onSubmit={generateRecurringSundays} className="space-y-4">
+              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Espace à bloquer</label><select name="space_id" required className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none">{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">De</label><input type="time" name="start_time" required defaultValue="08:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="13:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Générer les 52 dimanches</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL GESTION RESERVATION */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans max-h-[90vh] overflow-y-auto border border-white/20">
              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">{isEditing ? "Modifier la réservation" : "Détails de la demande"}</h2>
+                <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">{isEditing ? "Modifier" : "Gérer la demande"}</h2>
                 <button type="button" onClick={() => {setSelectedBooking(null); setIsEditing(false);}} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X className="w-5 h-5"/></button>
              </div>
              
@@ -284,7 +358,7 @@ export default function AdminPage() {
                           <p className="font-black text-xl text-gray-900">{selectedBooking.user_name}</p>
                           <p className="text-xs text-gray-500 font-medium mt-1">{selectedBooking.user_phone} • {selectedBooking.user_email}</p>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100">{selectedBooking.spaces?.name}</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100" style={{color: selectedBooking.spaces?.color}}>{selectedBooking.spaces?.name}</span>
                       </div>
                       <div className="bg-white p-4 rounded-xl border border-gray-100 flex items-center shadow-sm">
                         <Clock size={16} className="text-gray-400 mr-3"/>
@@ -292,24 +366,24 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="bg-blue-50/50 p-6 rounded-[24px] border border-blue-100">
-                      <strong className="block mb-2 uppercase text-[10px] font-black tracking-widest text-blue-500">Motif du demandeur</strong> 
+                      <strong className="block mb-2 uppercase text-[10px] font-black tracking-widest text-blue-500">Motif</strong> 
                       <p className="text-sm text-blue-900 font-medium">{selectedBooking.reason}</p>
                     </div>
                   </div>
                 )}
                 
                 <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Envoyé au demandeur)</label>
+                  <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Facultatif - Envoyé au demandeur)</label>
                   <textarea placeholder="Ex: Réservation validée, mais attention à bien éteindre en partant..." className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all font-medium h-24 resize-none" value={adminMessage} onChange={e => setAdminMessage(e.target.value)} />
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
-                  <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-2"/> Refuser</button>
+                  <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-2"/> Supprimer</button>
                   <button type="button" onClick={() => setIsEditing(!isEditing)} className="p-4 bg-gray-50 text-gray-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-gray-200 transition border border-gray-100"><Edit3 className="w-5 h-5 mb-2"/> {isEditing ? "Annuler" : "Modifier"}</button>
                   {isEditing ? (
                     <button type="submit" className="p-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center shadow-xl hover:bg-gray-800 transition"><Save className="w-5 h-5 mb-2"/> Sauver</button>
                   ) : (
-                    <button type="button" onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className="p-4 bg-green-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center shadow-lg hover:bg-green-600 transition"><CheckCircle2 className="w-5 h-5 mb-2"/> Valider</button>
+                    <button type="button" onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className={`p-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center transition ${selectedBooking.status === 'confirmed' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-500 text-white shadow-lg hover:bg-green-600'}`} disabled={selectedBooking.status === 'confirmed'}><CheckCircle2 className="w-5 h-5 mb-2"/> {selectedBooking.status === 'confirmed' ? 'Déjà validé' : 'Valider'}</button>
                   )}
                 </div>
              </form>
