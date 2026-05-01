@@ -100,8 +100,8 @@ export default function Home() {
   if (!isMounted) return null;
 
   return (
-    /* h-screen + overflow-hidden sur le parent direct pour tuer le scroll de page */
-    <div className="flex h-screen w-screen bg-gray-50 font-sans overflow-hidden">
+    /* h-screen + fixed + overflow-hidden = La page est une prison, rien ne bouge en dehors du calendrier */
+    <div className="fixed inset-0 flex h-screen w-screen bg-gray-50 font-sans overflow-hidden select-none">
       
       {/* 1. SIDEBAR */}
       <aside className={`
@@ -144,10 +144,9 @@ export default function Home() {
       </aside>
 
       {/* 2. ZONE PRINCIPALE */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-screen">
         
-        {/* HEADER FIXE */}
-        <header className="bg-white border-b px-4 lg:px-8 py-4 flex justify-between items-center h-20 flex-shrink-0 z-20">
+        <header className="bg-white border-b px-4 lg:px-8 py-4 flex justify-between items-center h-20 flex-shrink-0 z-50">
           <div className="flex items-center space-x-4">
             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 rounded-xl bg-gray-50 border"><Menu className="w-5 h-5"/></button>
             <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className={`p-2 rounded-xl bg-gray-50 ${!isSameDay(currentDate, today) ? 'hover:bg-gray-100' : 'opacity-20'}`}><ChevronLeft className="w-5 h-5"/></button>
@@ -157,63 +156,65 @@ export default function Home() {
           <button onClick={() => setIsModalOpen(true)} className="bg-black text-white px-6 py-2.5 rounded-2xl font-bold flex items-center shadow-lg"><Plus className="w-5 h-5 mr-2" /> Demander</button>
         </header>
 
-        {/* ZONE DE SCROLL UNIQUE */}
-        <main className="flex-1 overflow-auto bg-gray-100/50 p-4 lg:p-8 relative">
-          <div className="inline-flex min-w-full bg-white rounded-3xl border border-gray-200 shadow-sm relative">
+        {/* C'est ici que l'on fixe le scroll : h-full sur main + overflow-auto sur le div enfant */}
+        <main className="flex-1 min-h-0 p-4 lg:p-8 bg-gray-100/50 relative">
+          <div className="h-full w-full bg-white rounded-3xl border border-gray-200 shadow-sm overflow-auto overscroll-none relative">
             
-            {/* COLONNE DES HEURES (Sticky Left) */}
-            <div className="w-16 lg:w-20 flex-shrink-0 sticky left-0 z-30 bg-gray-50 border-r border-gray-100">
-              <div className="h-16 border-b border-gray-100 sticky top-0 bg-gray-100 z-40 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-gray-400"/>
+            <div className="inline-flex min-w-full items-start">
+              
+              {/* HEURES FIGÉES (Sticky Left) */}
+              <div className="w-16 lg:w-20 flex-shrink-0 sticky left-0 z-40 bg-gray-50 border-r border-gray-100">
+                <div className="h-16 border-b border-gray-100 sticky top-0 bg-gray-100 z-50 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-gray-400"/>
+                </div>
+                {hours.map(h => <div key={h} className="h-16 border-b border-gray-100 text-center text-[10px] font-black text-gray-300 pt-3">{h}:00</div>)}
               </div>
-              {hours.map(h => <div key={h} className="h-16 border-b border-gray-100 text-center text-[10px] font-black text-gray-300 pt-3">{h}:00</div>)}
-            </div>
 
-            {/* GRILLE DES SALLES */}
-            <div className="flex flex-1">
-              {spaces.map(space => {
-                const spaceBookings = bookings.filter(b => b.space_id === space.id);
-                return (
-                  <div key={space.id} className="min-w-[140px] flex-1 border-r border-gray-100 last:border-r-0">
-                    
-                    {/* NOM DE LA SALLE (Sticky Top) */}
-                    <div className="h-16 border-b border-gray-100 sticky top-0 z-20 bg-white/95 backdrop-blur-sm flex items-center justify-center px-2 text-center">
-                      <span className="text-[10px] font-black uppercase tracking-widest truncate" style={{ color: space.color }}>{space.name}</span>
-                    </div>
+              {/* SALLES FIGÉES (Sticky Top) */}
+              <div className="flex flex-1">
+                {spaces.map(space => {
+                  const spaceBookings = bookings.filter(b => b.space_id === space.id);
+                  return (
+                    <div key={space.id} className="min-w-[140px] flex-1 border-r border-gray-100 last:border-r-0">
+                      
+                      <div className="h-16 border-b border-gray-100 sticky top-0 z-30 bg-white/95 backdrop-blur-sm flex items-center justify-center px-2 text-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest truncate" style={{ color: space.color }}>{space.name}</span>
+                      </div>
 
-                    <div className="relative">
-                      {hours.map(h => {
-                        const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                        const isPast = (new Date(currentDate).setHours(h)) < new Date().getTime();
-                        return (
-                          <div key={h} onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} 
+                      <div className="relative">
+                        {hours.map(h => {
+                          const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
+                          const isPast = (new Date(currentDate).setHours(h)) < new Date().getTime();
+                          return (
+                            <div key={h} onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} 
                                className={`h-16 border-b border-gray-100 flex items-center justify-center group ${isOccupied || isPast ? 'bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
-                            {!isOccupied && !isPast && <Plus className="w-4 h-4 text-gray-200 opacity-0 group-hover:opacity-100" />}
-                          </div>
-                        );
-                      })}
+                              {!isOccupied && !isPast && <Plus className="w-4 h-4 text-gray-200 opacity-0 group-hover:opacity-100" />}
+                            </div>
+                          );
+                        })}
 
-                      {spaceBookings.map(b => {
-                        const start = new Date(b.start_time); const end = new Date(b.end_time);
-                        const top = (start.getHours() + start.getMinutes()/60 - 8) * 64;
-                        const height = (end.getHours() + end.getMinutes()/60 - (start.getHours() + start.getMinutes()/60)) * 64;
-                        return (
-                          <div key={b.id} className={`absolute inset-x-1 rounded-xl p-2 shadow-sm border pointer-events-none ${b.status === 'pending' ? 'opacity-60 border-dashed' : ''}`}
+                        {spaceBookings.map(b => {
+                          const start = new Date(b.start_time); const end = new Date(b.end_time);
+                          const top = (start.getHours() + start.getMinutes()/60 - 8) * 64;
+                          const height = (end.getHours() + end.getMinutes()/60 - (start.getHours() + start.getMinutes()/60)) * 64;
+                          return (
+                            <div key={b.id} className={`absolute inset-x-1 rounded-xl p-2 shadow-sm border pointer-events-none ${b.status === 'pending' ? 'opacity-60 border-dashed' : ''}`}
                                style={{ top: `${top}px`, height: `${height}px`, backgroundColor: space.color, borderColor: 'rgba(0,0,0,0.1)' }}>
-                            <p className="text-[10px] font-black text-white truncate">{b.user_name}</p>
-                          </div>
-                        );
-                      })}
+                              <p className="text-[10px] font-black text-white truncate">{b.user_name}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </main>
       </div>
 
-      {/* MODALS INCHANGÉS MAIS POSITIONNÉS EN Z-INDEX 100 */}
+      {/* MODALS */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
