@@ -64,78 +64,113 @@ export default function Home() {
   };
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden bg-gray-50 font-sans">
+    <div className="fixed inset-0 flex bg-gray-50 font-sans overflow-hidden">
       {/* SIDEBAR */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r flex flex-col transition-transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-6 border-b font-black text-xl">RÉSERVATION</div>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r flex flex-col transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="p-6 border-b flex items-center space-x-3">
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <div className="font-black text-sm leading-tight uppercase">Réservation<br/><span className="text-gray-400">de salle</span></div>
+        </div>
         <div className="p-4 flex-1 overflow-y-auto">
-          <div className="bg-gray-50 p-4 rounded-2xl border">
-            <div className="grid grid-cols-7 gap-1">
-              {eachDayOfInterval({ 
-                start: startOfWeek(startOfMonth(currentMonthView), {weekStartsOn: 1}), 
-                end: endOfWeek(endOfMonth(currentMonthView), {weekStartsOn: 1}) 
-              }).map((day, i) => (
-                <div key={i} onClick={() => !isBefore(day, today) && setCurrentDate(day)} 
-                     className={`h-8 flex items-center justify-center rounded-lg text-xs cursor-pointer ${isSameDay(day, currentDate) ? 'bg-black text-white' : 'hover:bg-gray-200'}`}>
-                  {format(day, "d")}
-                </div>
-              ))}
-            </div>
+          <div className="bg-gray-50 p-4 rounded-2xl border mb-4">
+             <div className="flex justify-between items-center mb-4">
+                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))}><ChevronLeft size={16}/></button>
+                <span className="text-xs font-bold capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
+                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))}><ChevronRight size={16}/></button>
+             </div>
+             <div className="grid grid-cols-7 gap-1 text-[10px] text-center font-bold text-gray-400 mb-2">
+                {['L','M','M','J','V','S','D'].map(d => <div key={d}>{d}</div>)}
+             </div>
+             <div className="grid grid-cols-7 gap-1">
+                {eachDayOfInterval({ 
+                  start: startOfWeek(startOfMonth(currentMonthView), {weekStartsOn: 1}), 
+                  end: endOfWeek(endOfMonth(currentMonthView), {weekStartsOn: 1}) 
+                }).map((day, i) => (
+                  <div key={i} onClick={() => !isBefore(day, today) && setCurrentDate(day)} 
+                       className={`h-7 flex items-center justify-center rounded-lg text-[10px] cursor-pointer transition-colors ${isSameDay(day, currentDate) ? 'bg-black text-white' : isBefore(day, today) ? 'text-gray-200 cursor-not-allowed' : 'hover:bg-gray-200'}`}>
+                    {format(day, "d")}
+                  </div>
+                ))}
+             </div>
           </div>
         </div>
       </aside>
 
-      {/* MAIN */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 bg-white border-b px-8 flex items-center justify-between flex-shrink-0">
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
+        <header className="h-20 bg-white border-b px-4 lg:px-8 flex items-center justify-between z-40">
           <div className="flex items-center space-x-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden"><Menu/></button>
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2"><Menu/></button>
             <div className="flex items-center space-x-2">
-              <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-lg"><ChevronLeft size={18}/></button>
-              <span className="font-bold capitalize">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-lg"><ChevronRight size={18}/></button>
+              <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className={`p-2 rounded-lg ${isSameDay(currentDate, today) ? 'opacity-20 cursor-not-allowed' : 'bg-gray-50 hover:bg-gray-200'}`}><ChevronLeft size={18}/></button>
+              <span className="font-bold capitalize text-sm md:text-base">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-lg hover:bg-gray-200"><ChevronRight size={18}/></button>
             </div>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-black text-white px-6 py-2 rounded-xl font-bold">Réserver</button>
+          <button onClick={() => setIsModalOpen(true)} className="bg-black text-white px-4 md:px-6 py-2 rounded-xl font-bold text-sm">Réserver</button>
         </header>
 
-        <main className="flex-1 overflow-hidden p-4 lg:p-8">
-          <div className="h-full w-full bg-white rounded-3xl border shadow-sm flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto relative">
-              <table className="w-full border-collapse table-fixed min-w-[800px]">
-                <thead>
-                  <tr className="sticky top-0 z-30">
-                    <th className="sticky left-0 z-40 bg-gray-100 border-b border-r w-20 h-16"><Clock size={16} className="mx-auto text-gray-400" /></th>
-                    {spaces.map(space => (
-                      <th key={space.id} className="bg-white/95 backdrop-blur border-b border-r h-16 px-2">
-                        <span className="text-[10px] font-black uppercase" style={{ color: space.color }}>{space.name}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {hours.map(h => (
-                    <tr key={h} className="h-16">
-                      <td className="sticky left-0 z-20 bg-gray-50 border-r border-b text-[10px] font-bold text-gray-300 text-center">{h}:00</td>
-                      {spaces.map(space => {
-                        const isOccupied = bookings.some(b => b.space_id === space.id && h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                        return (
-                          <td key={space.id} className="border-r border-b relative p-0">
-                            <div onClick={() => !isOccupied && handleSlotClick(space.id, h)} className={`w-full h-full ${isOccupied ? 'bg-gray-50/50' : 'cursor-pointer hover:bg-gray-50'}`}></div>
-                            {bookings.filter(b => b.space_id === space.id && new Date(b.start_time).getHours() === h).map(b => (
-                              <div key={b.id} className="absolute inset-x-1 z-10 rounded-lg p-1 text-[9px] font-bold text-white truncate" 
-                                   style={{ top: '2px', height: '60px', backgroundColor: space.color }}>
-                                {b.user_name}
-                              </div>
-                            ))}
-                          </td>
-                        );
-                      })}
-                    </tr>
+        {/* CALENDAR GRID WRAPPER */}
+        <main className="flex-1 relative p-4 md:p-8 overflow-hidden bg-gray-50">
+          <div className="h-full w-full bg-white rounded-3xl border shadow-sm overflow-auto">
+            <table className="w-full border-separate border-spacing-0 min-w-[800px]">
+              <thead>
+                <tr>
+                  {/* COIN HAUT GAUCHE - FIXE */}
+                  <th className="sticky top-0 left-0 z-50 bg-gray-100 border-b border-r w-16 md:w-20 h-16 shadow-[2px_2px_0_rgba(0,0,0,0.05)]">
+                    <Clock size={16} className="mx-auto text-gray-400" />
+                  </th>
+                  {/* NOMS DES SALLES - FIXES EN HAUT */}
+                  {spaces.map(space => (
+                    <th key={space.id} className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-r h-16 px-2 shadow-[0_2px_0_rgba(0,0,0,0.05)]">
+                      <span className="text-[10px] font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>
+                        {space.name}
+                      </span>
+                    </th>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </tr>
+              </thead>
+              <tbody>
+                {hours.map(h => (
+                  <tr key={h}>
+                    {/* HEURES - FIXES À GAUCHE */}
+                    <td className="sticky left-0 z-40 bg-gray-50 border-r border-b h-16 text-[10px] font-bold text-gray-300 text-center shadow-[2px_0_0_rgba(0,0,0,0.05)]">
+                      {h}:00
+                    </td>
+                    {/* CELLULES DE RÉSERVATION */}
+                    {spaces.map(space => {
+                      const spaceBookings = bookings.filter(b => b.space_id === space.id);
+                      const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
+                      const isPast = (new Date(currentDate).setHours(h)) < new Date().getTime();
+                      
+                      return (
+                        <td key={space.id} className="border-r border-b relative p-0 h-16">
+                          <div 
+                            onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} 
+                            className={`w-full h-full ${isOccupied || isPast ? 'bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}
+                          />
+                          {/* Affichage des blocs */}
+                          {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
+                            <div 
+                              key={b.id} 
+                              className="absolute inset-x-1 z-10 rounded-lg p-2 text-[9px] font-black text-white truncate shadow-sm pointer-events-none" 
+                              style={{ 
+                                top: '4px', 
+                                height: `${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64 - 8}px`, 
+                                backgroundColor: space.color,
+                                opacity: b.status === 'pending' ? 0.6 : 1
+                              }}
+                            >
+                              {b.user_name}
+                            </div>
+                          ))}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </main>
       </div>
@@ -143,14 +178,14 @@ export default function Home() {
       {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold">Réservation</h2>
-              <button onClick={() => setIsModalOpen(false)}><X/></button>
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="font-black text-xl">RÉSERVATION</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X size={20}/></button>
             </div>
             <div className="space-y-4">
-              <input placeholder="Nom" className="w-full border rounded-xl p-3" value={formData.user_name} onChange={e => setFormData({...formData, user_name: e.target.value})} />
-              <button className="w-full bg-black text-white py-3 rounded-xl font-bold" onClick={() => setIsModalOpen(false)}>Fermer (Test)</button>
+              <input placeholder="Prénom & Nom" className="w-full border rounded-xl p-3 focus:ring-2 focus:ring-black outline-none" value={formData.user_name} onChange={e => setFormData({...formData, user_name: e.target.value})} />
+              <button className="w-full bg-black text-white py-4 rounded-xl font-bold hover:scale-[1.02] transition-transform" onClick={() => setIsModalOpen(false)}>Fermer l'exemple</button>
             </div>
           </div>
         </div>
