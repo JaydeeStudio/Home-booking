@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const { type, user_name, user_email, space_name, start_time, reason, booking_id } = body;
 
     // ⚠️ IMPORTANT : Mets l'URL de ton site Vercel ici dès qu'il sera en ligne
-    const BASE_URL = "http://localhost:3000"; 
+    https://home-booking-sigma.vercel.app
     const ADMIN_EMAIL = 'jonasdellomo@gmail.com'; 
 
     // Le Logo de ton église (doit être accessible sur internet pour s'afficher dans l'e-mail)
