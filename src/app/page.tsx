@@ -116,7 +116,8 @@ export default function Home() {
   if (!isMounted) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden relative">
+    /* h-[100dvh] permet de régler les bugs de hauteur sur les téléphones mobiles */
+    <div className="flex h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
       {/* 1. PANNEAU LATÉRAL (SIDEBAR) */}
       <aside className={`
@@ -210,78 +211,75 @@ export default function Home() {
           </button>
         </header>
 
-        {/* CONTAINER SCROLLABLE INFALLIBLE */}
-        <main className="flex-1 p-4 lg:p-8 flex flex-col min-h-0">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 flex-1 overflow-auto relative scroll-smooth">
+        {/* CONTAINER "ABSOLUTE" : La solution magique pour garantir le scroll interne */}
+        <main className="flex-1 relative bg-gray-50/50">
+          <div className="absolute inset-4 lg:inset-8 bg-white rounded-3xl shadow-xl border border-gray-200 overflow-auto scroll-smooth">
             
-            {/* Ligne magique qui contient toute la grille */}
-            <div className="flex min-w-max">
+            <div className="inline-flex min-w-full items-start">
               
               {/* Colonne de gauche (Heures) - FIGÉE à gauche */}
-              <div className="w-16 lg:w-20 flex-shrink-0 sticky left-0 z-30 bg-gray-50/95 backdrop-blur-sm border-r border-gray-100">
+              <div className="w-16 lg:w-20 flex-shrink-0 sticky left-0 z-40 bg-gray-50/95 backdrop-blur-md border-r border-gray-200">
                 {/* Coin haut-gauche - FIGÉ à gauche et en haut */}
-                <div className="h-16 border-b border-gray-100 sticky top-0 z-40 bg-gray-100 flex items-center justify-center text-gray-400">
+                <div className="h-16 border-b border-gray-200 sticky top-0 z-50 bg-gray-100 flex items-center justify-center text-gray-400">
                   <Clock className="w-4 h-4"/>
                 </div>
                 {hours.map((h) => <div key={h} className="h-16 border-b border-gray-100 text-center text-[10px] font-black text-gray-400 pt-2">{h}:00</div>)}
               </div>
               
               {/* Colonnes des salles */}
-              <div className="flex-1 flex">
-                {spaces.map((space) => {
-                  const spaceBookings = bookings.filter(b => b.space_id === space.id);
-                  return (
-                    <div key={space.id} className="w-[120px] lg:w-[150px] flex-shrink-0 border-r border-gray-100 last:border-r-0 relative">
-                      {/* Nom de la salle - FIGÉ en haut */}
-                      <div className="h-16 border-b border-gray-100 flex items-center justify-center bg-gray-50/95 backdrop-blur-sm sticky top-0 z-20 font-bold text-[10px] lg:text-xs uppercase tracking-widest text-center px-1" style={{ color: space.color }}>
-                        {space.name}
-                      </div>
-                      
-                      <div className="relative">
-                        {/* Grille des créneaux */}
-                        {hours.map((h) => {
-                          const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                          const slotTime = new Date(currentDate);
-                          slotTime.setHours(h, 0, 0, 0);
-                          const isPastSlot = slotTime < new Date();
-                          const isDisabled = isOccupied || isPastSlot;
-
-                          return (
-                            <div key={h} onClick={() => !isDisabled && handleSlotClick(space.id, h)}
-                              className={`h-16 border-b border-gray-100 transition-all flex items-center justify-center 
-                                ${isDisabled ? 'bg-gray-100/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 group'}`}>
-                              {!isDisabled && <Plus className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100" />}
-                              {isPastSlot && !isOccupied && <span className="text-[9px] lg:text-[10px] text-gray-300 font-medium opacity-50 hidden lg:block">Passé</span>}
-                            </div>
-                          );
-                        })}
-                        
-                        {/* Blocs de réservations */}
-                        {spaceBookings.map((b) => {
-                          const start = new Date(b.start_time); const end = new Date(b.end_time);
-                          const top = (start.getHours() + start.getMinutes() / 60 - 8) * 64; 
-                          const height = (end.getHours() + end.getMinutes() / 60 - (start.getHours() + start.getMinutes() / 60)) * 64;
-                          const isPending = b.status === 'pending';
-                          return (
-                            <div key={b.id} className={`absolute left-1 right-1 rounded-xl p-2 shadow-sm border pointer-events-none transition-all ${isPending ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`}
-                              style={{ top: `${top}px`, height: `${height}px`, backgroundColor: space.color, borderColor: isPending ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
-                              <p className="text-[9px] lg:text-[10px] font-black text-white truncate">{b.user_name}</p>
-                              {isPending && <p className="text-[8px] lg:text-[9px] text-white/90 font-bold uppercase tracking-tighter mt-0.5">En attente</p>}
-                            </div>
-                          );
-                        })}
-                      </div>
+              {spaces.map((space) => {
+                const spaceBookings = bookings.filter(b => b.space_id === space.id);
+                return (
+                  <div key={space.id} className="w-[120px] lg:w-[150px] flex-shrink-0 border-r border-gray-100 last:border-r-0">
+                    {/* Nom de la salle - FIGÉ en haut */}
+                    <div className="h-16 border-b border-gray-200 flex items-center justify-center bg-white/95 backdrop-blur-md sticky top-0 z-30 font-bold text-[10px] lg:text-xs uppercase tracking-widest text-center px-1" style={{ color: space.color }}>
+                      {space.name}
                     </div>
-                  );
-                })}
-              </div>
+                    
+                    <div className="relative">
+                      {/* Grille des créneaux */}
+                      {hours.map((h) => {
+                        const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
+                        const slotTime = new Date(currentDate);
+                        slotTime.setHours(h, 0, 0, 0);
+                        const isPastSlot = slotTime < new Date();
+                        const isDisabled = isOccupied || isPastSlot;
+
+                        return (
+                          <div key={h} onClick={() => !isDisabled && handleSlotClick(space.id, h)}
+                            className={`h-16 border-b border-gray-100 transition-all flex items-center justify-center 
+                              ${isDisabled ? 'bg-gray-100/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50 group'}`}>
+                            {!isDisabled && <Plus className="w-4 h-4 text-gray-300 opacity-0 group-hover:opacity-100" />}
+                            {isPastSlot && !isOccupied && <span className="text-[9px] lg:text-[10px] text-gray-300 font-medium opacity-50 hidden lg:block">Passé</span>}
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Blocs de réservations */}
+                      {spaceBookings.map((b) => {
+                        const start = new Date(b.start_time); const end = new Date(b.end_time);
+                        const top = (start.getHours() + start.getMinutes() / 60 - 8) * 64; 
+                        const height = (end.getHours() + end.getMinutes() / 60 - (start.getHours() + start.getMinutes() / 60)) * 64;
+                        const isPending = b.status === 'pending';
+                        return (
+                          <div key={b.id} className={`absolute left-1 right-1 rounded-xl p-2 shadow-sm border pointer-events-none transition-all ${isPending ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`}
+                            style={{ top: `${top}px`, height: `${height}px`, backgroundColor: space.color, borderColor: isPending ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
+                            <p className="text-[9px] lg:text-[10px] font-black text-white truncate">{b.user_name}</p>
+                            {isPending && <p className="text-[8px] lg:text-[9px] text-white/90 font-bold uppercase tracking-tighter mt-0.5">En attente</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
           </div>
         </main>
       </div>
 
-      {/* MODALS INCHANGÉS (Formulaire et Succès) ... */}
+      {/* MODALS INCHANGÉS (Formulaire et Succès) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
