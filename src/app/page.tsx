@@ -22,6 +22,8 @@ export default function Home() {
   
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
   const [formData, setFormData] = useState({
     space_id: "", first_name: "", last_name: "", user_email: "", 
@@ -112,8 +114,19 @@ export default function Home() {
     setCurrentImageIndex(0);
   };
 
-  const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
+const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
 
+  // --- LOGIQUE DE SWIPE MOBILE ---
+  const minSwipeDistance = 50;
+  const onTouchStart = (e: React.TouchEvent) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
+  const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > minSwipeDistance) setCurrentImageIndex(p => (p + 1) % spaceImages.length); // Glissement gauche -> Suivant
+    if (distance < -minSwipeDistance) setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1); // Glissement droite -> Précédent
+  };
+  // -------------------------------
   const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
   const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(monthEnd, { weekStartsOn: 1 }) });
   const weekDaysHeader = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
@@ -262,8 +275,12 @@ export default function Home() {
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
-            <div className="relative h-64 bg-gray-100 flex items-center justify-center border-b border-gray-200 group">
-              {spaceImages.length > 0 ? (
+<div 
+              className="relative h-64 bg-gray-100 flex items-center justify-center border-b border-gray-200 group"
+              onTouchStart={onTouchStart} 
+              onTouchMove={onTouchMove} 
+              onTouchEnd={onTouchEnd}
+            >              {spaceImages.length > 0 ? (
                 <>
                   <img src={spaceImages[currentImageIndex]} alt={`${viewSpace.name} ${currentImageIndex+1}`} className="w-full h-full object-cover transition-opacity duration-300" />
                   
