@@ -261,8 +261,10 @@ export default function Home() {
                     <>
                       <button onClick={() => setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)} className="absolute left-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronLeft size={20}/></button>
                       <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="absolute right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronRight size={20}/></button>
+                      
+                      {/* CORRECTION DU TYPE ICI */}
                       <div className="absolute bottom-4 flex space-x-1.5">
-                        {spaceImages.map((_, idx) => (
+                        {spaceImages.map((_: any, idx: number) => (
                           <div key={idx} className={`w-2 h-2 rounded-full ${idx === currentImageIndex ? 'bg-white' : 'bg-white/50'}`} />
                         ))}
                       </div>
