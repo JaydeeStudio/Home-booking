@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, Lock, Calendar as CalendarIcon } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, Lock, CalendarRange, Calendar as CalendarIcon } from "lucide-react";
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
@@ -204,7 +204,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* SIDEBAR ADMIN (VISIBLE UNIQUEMENT SUR DESKTOP) */}
+      {/* SIDEBAR ADMIN DESKTOP */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
@@ -288,49 +288,49 @@ export default function AdminPage() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* HEADER DE NAVIGATION ADMIN (3 BLOCS HARMONISÉS) */}
-        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 flex-shrink-0 gap-2 w-full">
+        {/* HEADER DE NAVIGATION ADMIN */}
+        <header className="bg-white border-b border-gray-100 px-3 lg:px-8 py-3 lg:py-4 flex justify-between items-center z-40 flex-shrink-0 w-full">
           
-          {/* 1. Bloc gauche : Icône Calendrier (Mobile) ou Bouton Bloquer (Desktop) */}
-          <div className="flex justify-start lg:hidden">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
-              <CalendarIcon size={24} />
+          {/* 1. Bloc gauche : Icône Calendrier (Mobile) */}
+          <div className="flex-1 flex justify-start lg:hidden">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
+              <CalendarIcon size={20} />
             </button>
           </div>
           <div className="hidden lg:flex flex-1 justify-start">
-            <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-xs lg:text-sm transition-colors border border-indigo-100 shadow-sm">
-              <Lock size={16} className="mr-2"/> Bloquer des créneaux
-            </button>
+            {/* Desktop a la sidebar complète à gauche */}
           </div>
 
           {/* 2. Bloc centre : Date et flèches */}
-          <div className="flex items-center justify-between w-full max-w-[260px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-auto">
-            <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
-            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-1" onClick={() => setIsSidebarOpen(true)}>
-               <span className="text-[13px] sm:text-lg font-black capitalize">
+          <div className="flex items-center justify-between w-full max-w-[190px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-2">
+            <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
+            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
+               <span className="text-[12px] sm:text-lg font-black capitalize truncate">
                   <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
                   <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
                </span>
             </div>
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
+            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
           </div>
 
-          {/* 3. Bloc droite : Actions (Mobile: Cadenas, Logout / Desktop: Search, Logout) */}
-          <div className="flex justify-end lg:flex-1 items-center space-x-2 lg:space-x-4">
+          {/* 3. Bloc droite : Actions */}
+          <div className="flex-1 flex justify-end items-center space-x-1.5 sm:space-x-4">
             <div className="relative hidden lg:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-48 lg:w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
             </div>
-            <button onClick={() => setShowBlockModal(true)} className="lg:hidden p-2 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100">
-              <Lock size={20}/>
+            
+            <button onClick={() => setShowBlockModal(true)} className="p-2 sm:p-3 bg-indigo-50 text-indigo-700 rounded-xl sm:rounded-2xl hover:bg-indigo-100 font-bold flex items-center transition-colors border border-indigo-100 shadow-sm">
+              <Lock size={16} className="lg:mr-2"/> <span className="hidden lg:inline text-sm">Bloquer des créneaux</span>
             </button>
-            <button onClick={() => supabase.auth.signOut()} className="p-2 lg:p-3 bg-red-50 text-red-600 rounded-xl lg:rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors">
+
+            <button onClick={() => supabase.auth.signOut()} className="p-2 lg:p-3 bg-red-50 text-red-600 rounded-xl lg:rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors border border-red-100 shadow-sm">
               <LogOut size={16} className="lg:mr-2"/> <span className="hidden lg:inline">Déconnexion</span>
             </button>
           </div>
         </header>
 
-        {/* NOUVEAU: RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
+        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
         <div className="lg:hidden p-4 bg-white border-b border-gray-100 flex flex-col gap-4 flex-shrink-0">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

@@ -238,37 +238,37 @@ export default function Home() {
         </div>
 
         {/* HEADER DE NAVIGATION (3 BLOCS HARMONISÉS) */}
-        <header className="px-4 lg:px-8 py-4 flex justify-between items-center z-10 flex-shrink-0 gap-2 w-full">
+        <header className="px-3 lg:px-8 py-3 lg:py-4 flex justify-between items-center z-10 flex-shrink-0 w-full">
           
-          {/* 1. Bloc gauche : Icône Calendrier (Mobile) */}
+          {/* 1. Bloc gauche : Icône Calendrier */}
           <div className="flex-1 flex justify-start lg:hidden">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
-              <CalendarIcon size={24} />
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
+              <CalendarIcon size={20} />
             </button>
           </div>
           <div className="hidden lg:block flex-1"></div>
 
           {/* 2. Bloc centre : Date et flèches */}
-          <div className="flex items-center justify-between w-full max-w-[260px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-auto">
-            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
+          <div className="flex items-center justify-between w-full max-w-[190px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-2">
+            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
               <ChevronLeft size={18}/>
             </button>
             
-            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-1" onClick={() => setIsSidebarOpen(true)}>
-              <span className="text-[13px] sm:text-lg font-black capitalize">
+            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
+              <span className="text-[12px] sm:text-lg font-black capitalize truncate">
                 <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
                 <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
               </span>
             </div>
 
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 bg-gray-50 rounded-xl transition">
+            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 hover:bg-gray-100 bg-gray-50 rounded-lg sm:rounded-xl transition">
               <ChevronRight size={18}/>
             </button>
           </div>
 
           {/* 3. Bloc droite : Demande */}
           <div className="flex-1 flex justify-end">
-            <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-4 lg:px-6 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs">
+            <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-3 sm:px-6 py-2.5 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs">
               <Plus size={16} className="mr-1 lg:mr-2" /> 
               <span className="hidden sm:inline">Demander</span>
               <span className="sm:hidden">Demande</span>
