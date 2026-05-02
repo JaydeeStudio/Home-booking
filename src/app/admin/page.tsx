@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, CalendarRange, Calendar as CalendarIcon } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, Lock, Calendar as CalendarIcon } from "lucide-react";
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
@@ -62,7 +62,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); setBlockSuccessMessage(""); }
+      if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); setBlockSuccessMessage(""); setIsSidebarOpen(false); }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -261,7 +261,7 @@ export default function AdminPage() {
               <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
             </div>
             
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6 shrink-0">
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
                 <div className="flex space-x-1">
@@ -282,19 +282,6 @@ export default function AdminPage() {
                 })}
               </div>
             </div>
-
-            <div className="flex-1 overflow-auto">
-              <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">En attente ({pendingBookings.length})</h2>
-              <div className="space-y-3">
-                {pendingBookings.map(b => (
-                  <div key={b.id} onClick={() => {setIsSidebarOpen(false); openBookingModal(b);}} className="p-4 rounded-2xl border border-blue-100 bg-blue-50/50 hover:border-blue-300 cursor-pointer transition-all">
-                    <span className="text-[9px] font-black px-2 py-1 rounded bg-blue-100 text-blue-700 mb-2 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
-                    <p className="font-bold text-sm">{b.user_name}</p>
-                  </div>
-                ))}
-                {pendingBookings.length === 0 && <p className="text-xs text-gray-400 italic">Aucune demande en attente.</p>}
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -302,20 +289,22 @@ export default function AdminPage() {
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
         {/* HEADER DE NAVIGATION ADMIN (3 BLOCS HARMONISÉS) */}
-        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 h-[89px] flex-shrink-0 gap-2">
+        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 flex-shrink-0 gap-2 w-full">
           
           {/* 1. Bloc gauche : Icône Calendrier (Mobile) ou Bouton Bloquer (Desktop) */}
-          <div className="flex-1 flex justify-start lg:hidden">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
+          <div className="flex justify-start lg:hidden">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
               <CalendarIcon size={24} />
             </button>
           </div>
           <div className="hidden lg:flex flex-1 justify-start">
-            <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-xs lg:text-sm transition-colors border border-indigo-100 shadow-sm"><CalendarRange size={16} className="mr-2"/> Bloquer des créneaux</button>
+            <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-xs lg:text-sm transition-colors border border-indigo-100 shadow-sm">
+              <Lock size={16} className="mr-2"/> Bloquer des créneaux
+            </button>
           </div>
 
           {/* 2. Bloc centre : Date et flèches */}
-          <div className="flex items-center justify-between w-[55%] sm:w-[300px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0">
+          <div className="flex items-center justify-between w-full max-w-[260px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-auto">
             <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
             <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-1" onClick={() => setIsSidebarOpen(true)}>
                <span className="text-[13px] sm:text-lg font-black capitalize">
@@ -326,22 +315,46 @@ export default function AdminPage() {
             <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
           </div>
 
-          {/* 3. Bloc droite : Actions */}
-          <div className="flex-1 flex justify-end items-center space-x-2 lg:space-x-4">
-            <div className="relative hidden md:block">
+          {/* 3. Bloc droite : Actions (Mobile: Cadenas, Logout / Desktop: Search, Logout) */}
+          <div className="flex justify-end lg:flex-1 items-center space-x-2 lg:space-x-4">
+            <div className="relative hidden lg:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-48 lg:w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
             </div>
-            <button onClick={() => setShowBlockModal(true)} className="lg:hidden p-2 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100"><CalendarRange size={20}/></button>
+            <button onClick={() => setShowBlockModal(true)} className="lg:hidden p-2 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100">
+              <Lock size={20}/>
+            </button>
             <button onClick={() => supabase.auth.signOut()} className="p-2 lg:p-3 bg-red-50 text-red-600 rounded-xl lg:rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors">
               <LogOut size={16} className="lg:mr-2"/> <span className="hidden lg:inline">Déconnexion</span>
             </button>
           </div>
         </header>
 
+        {/* NOUVEAU: RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
+        <div className="lg:hidden p-4 bg-white border-b border-gray-100 flex flex-col gap-4 flex-shrink-0">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold shadow-inner" />
+          </div>
+          {pendingBookings.length > 0 && (
+            <div>
+              <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">En attente ({pendingBookings.length})</h2>
+              <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
+                {pendingBookings.map(b => (
+                  <div key={b.id} onClick={() => openBookingModal(b)} className="shrink-0 w-48 p-3 rounded-2xl border border-blue-100 bg-blue-50/50 hover:border-blue-300 cursor-pointer transition-all">
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-700 mb-1.5 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
+                    <p className="font-bold text-sm truncate">{b.user_name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 flex items-center"><Clock size={10} className="mr-1"/> {format(new Date(b.start_time), "d MMM HH:mm", {locale:fr})}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           {searchTerm ? (
-             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-xl p-8 overflow-auto">
+             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-xl p-8 overflow-auto mt-4 lg:mt-0">
                 <div className="flex items-center justify-between mb-8 border-b pb-4">
                   <h2 className="text-2xl font-black">Résultats : "{searchTerm}"</h2>
                   <button onClick={() => setSearchTerm("")} className="text-sm font-bold bg-gray-100 px-4 py-2 rounded-xl hover:bg-gray-200">Effacer</button>

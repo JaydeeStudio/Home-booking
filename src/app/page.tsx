@@ -37,7 +37,7 @@ export default function Home() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { setIsModalOpen(false); setViewSpace(null); }
+      if (e.key === 'Escape') { setIsModalOpen(false); setViewSpace(null); setIsSidebarOpen(false); }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -144,53 +144,16 @@ export default function Home() {
         </div>
       </div>
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="p-6 border-b border-gray-100 hidden lg:flex items-center justify-between">
+      {/* SIDEBAR DESKTOP */}
+      <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
             <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
             <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Home</span><span className="block text-gray-400 text-sm">Réservation</span></h1>
           </div>
         </div>
 
-        {/* MODAL CALENDRIER (VISIBLE UNIQUEMENT SUR MOBILE) */}
-        {isSidebarOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
-            <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
-                <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-                  <div className="flex space-x-1">
-                    <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronLeft className="w-4 h-4" /></button>
-                    <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronRight className="w-4 h-4" /></button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center mb-2">{weekDaysHeader.map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
-                <div className="grid grid-cols-7 gap-1">
-                  {calendarDays.map((day, i) => {
-                    const isPast = isBefore(day, today);
-                    const isSelected = isSameDay(day, currentDate);
-                    return (
-                      <div key={i} onClick={() => { if(!isPast) { setCurrentDate(day); setIsSidebarOpen(false); }}} 
-                        className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
-                          ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
-                          ${!isPast && !isSelected ? 'text-gray-700' : ''} 
-                          ${!isSameMonth(day, currentMonthView) && !isPast ? 'text-gray-400' : ''} 
-                          ${isSelected ? 'bg-black text-white font-bold shadow-md active:bg-gray-800' : ''}`}>
-                        {format(day, "d")}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="p-6 flex-1 overflow-y-auto hidden lg:block">
+        <div className="p-6 flex-1 overflow-y-auto">
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
@@ -220,6 +183,45 @@ export default function Home() {
         </div>
       </aside>
 
+      {/* MODAL CALENDRIER (VISIBLE UNIQUEMENT SUR MOBILE) */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col">
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
+            </div>
+            
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
+              <div className="flex justify-between items-center mb-4">
+                <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
+                <div className="flex space-x-1">
+                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center mb-2">{weekDaysHeader.map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day, i) => {
+                  const isPast = isBefore(day, today);
+                  const isSelected = isSameDay(day, currentDate);
+                  return (
+                    <div key={i} onClick={() => { if(!isPast) {setCurrentDate(day); setIsSidebarOpen(false);} }} 
+                      className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
+                        ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
+                        ${!isPast && !isSelected ? 'text-gray-700' : ''} 
+                        ${!isSameMonth(day, currentMonthView) && !isPast ? 'text-gray-400' : ''} 
+                        ${isSelected ? 'bg-black text-white font-bold shadow-md active:bg-gray-800' : ''}`}>
+                      {format(day, "d")}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
         {/* SECTION HERO D'EXPLICATION */}
@@ -236,18 +238,18 @@ export default function Home() {
         </div>
 
         {/* HEADER DE NAVIGATION (3 BLOCS HARMONISÉS) */}
-        <header className="px-4 lg:px-8 py-4 flex justify-between items-center z-10 flex-shrink-0 gap-2">
+        <header className="px-4 lg:px-8 py-4 flex justify-between items-center z-10 flex-shrink-0 gap-2 w-full">
           
-          {/* 1. Bloc gauche (Icône) */}
+          {/* 1. Bloc gauche : Icône Calendrier (Mobile) */}
           <div className="flex-1 flex justify-start lg:hidden">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
               <CalendarIcon size={24} />
             </button>
           </div>
           <div className="hidden lg:block flex-1"></div>
 
-          {/* 2. Bloc centre (Date) */}
-          <div className="flex items-center justify-between w-[60%] sm:w-[320px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0">
+          {/* 2. Bloc centre : Date et flèches */}
+          <div className="flex items-center justify-between w-full max-w-[260px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-auto">
             <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
               <ChevronLeft size={18}/>
             </button>
@@ -264,7 +266,7 @@ export default function Home() {
             </button>
           </div>
 
-          {/* 3. Bloc droite (Demande) */}
+          {/* 3. Bloc droite : Demande */}
           <div className="flex-1 flex justify-end">
             <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-4 lg:px-6 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs">
               <Plus size={16} className="mr-1 lg:mr-2" /> 
@@ -305,7 +307,6 @@ export default function Home() {
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             
-                            {/* Affichage normal des réservations (même passées) */}
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                               <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
                                 {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
@@ -323,7 +324,7 @@ export default function Home() {
         </main>
       </div>
 
-      {/* MODAL PHOTOS DE LA SALLE (CAROUSEL AVEC SWIPE) */}
+      {/* MODAL PHOTOS DE LA SALLE */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
