@@ -137,7 +137,7 @@ export default function AdminPage() {
     let currentDay = new Date(start_date_str);
     const endRecDate = recurrence === "none" ? currentDay : new Date(end_recurrence_str);
     const blocks = [];
-    let limit = 0; // sécurité pour éviter des boucles infinies
+    let limit = 0; 
 
     while (currentDay <= endRecDate && limit < 365) {
       const st = new Date(currentDay); const [sh, sm] = start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
@@ -391,4 +391,33 @@ export default function AdminPage() {
                         <p className="text-sm font-bold text-gray-800">{format(new Date(selectedBooking.start_time), "EEEE d MMMM yyyy", {locale:fr})} <span className="text-gray-400 mx-1">•</span> {format(new Date(selectedBooking.start_time), "HH:mm")} à {format(new Date(selectedBooking.end_time), "HH:mm")}</p>
                       </div>
                     </div>
-                    <div className="bg-
+                    <div className="bg-blue-50/50 p-6 rounded-[24px] border border-blue-100">
+                      <strong className="block mb-2 uppercase text-[10px] font-black tracking-widest text-blue-500">Motif</strong> 
+                      <p className="text-sm text-blue-900 font-medium">{selectedBooking.reason}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedBooking.user_email && (
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Facultatif - Envoyé au demandeur)</label>
+                    <textarea placeholder="Ex: Réservation validée, mais attention à bien éteindre en partant..." className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all font-medium h-24 resize-none" value={adminMessage} onChange={e => setAdminMessage(e.target.value)} />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                  <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-2"/> Supprimer</button>
+                  <button type="button" onClick={() => setIsEditing(!isEditing)} className="p-4 bg-gray-50 text-gray-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-gray-200 transition border border-gray-100"><Edit3 className="w-5 h-5 mb-2"/> {isEditing ? "Annuler" : "Modifier"}</button>
+                  {isEditing ? (
+                    <button type="submit" className="p-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center shadow-xl hover:bg-gray-800 transition"><Save className="w-5 h-5 mb-2"/> Sauver</button>
+                  ) : (
+                    <button type="button" onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className={`p-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center transition ${selectedBooking.status === 'confirmed' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-500 text-white shadow-lg hover:bg-green-600'}`} disabled={selectedBooking.status === 'confirmed'}><CheckCircle2 className="w-5 h-5 mb-2"/> {selectedBooking.status === 'confirmed' ? 'Déjà validé' : 'Valider'}</button>
+                  )}
+                </div>
+             </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
