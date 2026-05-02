@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Menu } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Menu, Info } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -19,6 +19,7 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [viewSpace, setViewSpace] = useState<any | null>(null); // Pour la fenêtre de la salle
   
   const [formData, setFormData] = useState({
     space_id: "", first_name: "", last_name: "", user_email: "", 
@@ -31,7 +32,9 @@ export default function Home() {
   useEffect(() => { setIsMounted(true); }, []);
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsModalOpen(false); };
+    const handleEsc = (e: KeyboardEvent) => { 
+      if (e.key === 'Escape') { setIsModalOpen(false); setViewSpace(null); }
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
@@ -121,7 +124,7 @@ export default function Home() {
         <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200"><Menu size={20}/></button>
       </div>
 
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-none transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="p-6 border-b border-gray-100 hidden lg:flex items-center justify-between">
           <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
             <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
@@ -129,7 +132,6 @@ export default function Home() {
           </div>
         </div>
         
-        {/* Menu mobile fermeture */}
         <div className="p-4 border-b border-gray-100 flex lg:hidden justify-between items-center bg-gray-50">
            <span className="font-black text-sm uppercase tracking-widest text-gray-400">Navigation</span>
            <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm"><X size={16}/></button>
@@ -164,11 +166,14 @@ export default function Home() {
         
         {/* SECTION HERO D'EXPLICATION */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
-          <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm">
-            <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-2">Bienvenue sur le portail de réservation.</h2>
-            <p className="text-gray-500 font-medium text-sm lg:text-base max-w-3xl leading-relaxed">
-              Sélectionnez une date dans le calendrier pour visualiser les disponibilités de nos salles en temps réel. Cliquez sur un créneau libre pour formuler votre demande. Chaque demande est soumise à la validation de notre administration.
-            </p>
+          <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-center">
+            <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
+            <div>
+              <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-1">Portail de réservation des salles</h2>
+              <p className="text-gray-500 font-medium text-sm lg:text-base leading-relaxed">
+                Cliquez sur le nom d'une salle pour voir ses détails. Sélectionnez une date dans le calendrier, puis choisissez un créneau libre pour formuler votre demande. L'administration vous confirmera la réservation par e-mail.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -189,9 +194,8 @@ export default function Home() {
                   <tr className="sticky top-0 z-30">
                     <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20 shadow-[1px_1px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
                     {spaces.map(space => (
-                      <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight">
-                        <span className="text-[11px] lg:text-xs font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span>
-                        {/* AFFICHAGE DE LA CAPACITÉ ICI */}
+                      <th key={space.id} onClick={() => setViewSpace(space)} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight cursor-pointer hover:bg-gray-50 transition-colors group">
+                        <span className="text-[11px] lg:text-xs font-black uppercase tracking-widest block truncate group-hover:scale-105 transition-transform" style={{ color: space.color }}>{space.name}</span>
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mt-1">{space.capacity ? `${space.capacity} places` : 'Capacité N/A'}</span>
                       </th>
                     ))}
@@ -229,7 +233,34 @@ export default function Home() {
         </main>
       </div>
 
-      {/* MODAL FORMULAIRE */}
+      {/* MODAL PHOTOS DE LA SALLE */}
+      {viewSpace && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
+          <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
+            <div className="relative h-64 bg-gray-100 flex items-center justify-center border-b border-gray-200">
+              {viewSpace.image_url ? (
+                <img src={viewSpace.image_url} alt={viewSpace.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center text-gray-400">
+                   <Info className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                   <p className="font-bold text-sm">Aucune photo disponible</p>
+                </div>
+              )}
+              <button onClick={() => setViewSpace(null)} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-sm"><X className="w-5 h-5 text-black" /></button>
+            </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-black uppercase tracking-tight mb-2" style={{ color: viewSpace.color }}>{viewSpace.name}</h2>
+              <div className="inline-block px-3 py-1 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 mb-6 uppercase tracking-wider">
+                Capacité : {viewSpace.capacity ? `${viewSpace.capacity} places` : 'Non renseignée'}
+              </div>
+              {viewSpace.description && <p className="text-gray-600 leading-relaxed font-medium">{viewSpace.description}</p>}
+              <button onClick={() => { setViewSpace(null); setFormData(prev => ({...prev, space_id: viewSpace.id, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="w-full mt-8 bg-black text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:scale-[1.02] transition-transform shadow-xl">Demander cette salle</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FORMULAIRE DE RÉSERVATION */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -253,7 +284,6 @@ export default function Home() {
               </div>
               <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Raison de la demande *</label><textarea required placeholder="Réunion, rencontre..." value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black h-24 resize-none" /></div>
               
-              {/* CONDITIONS D'UTILISATION */}
               <div className="flex items-start mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <input type="checkbox" required id="cgv" checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black" />
                 <label htmlFor="cgv" className="ml-3 text-xs text-gray-600 font-medium leading-relaxed">

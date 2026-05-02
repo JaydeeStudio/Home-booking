@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
   format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
-  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths,
-  nextSunday
+  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, CalendarRange } from "lucide-react";
@@ -26,7 +25,10 @@ export default function AdminPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [adminMessage, setAdminMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showRecurrentModal, setShowRecurrentModal] = useState(false);
+  
+  // Modal pour Bloquer des créneaux
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [recurrenceOption, setRecurrenceOption] = useState("none");
   
   const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
 
@@ -59,7 +61,9 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowRecurrentModal(false); }};
+    const handleEsc = (e: KeyboardEvent) => { 
+      if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); }
+    };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
@@ -106,7 +110,7 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    if(!booking.user_email) return; // Ne pas envoyer d'email aux réservations récurrentes sans email
+    if(!booking.user_email) return; 
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
     await fetch('/api/send-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -118,38 +122,43 @@ export default function AdminPage() {
     });
   };
 
-  // FONCTION POUR BLOQUER LES DIMANCHES
-  const generateRecurringSundays = async (e: React.FormEvent<HTMLFormElement>) => {
+  // FONCTION POUR BLOQUER DES CRÉNEAUX MULTIPLES
+  const generateBlocks = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const space_id = fd.get('space_id') as string;
+    const start_date_str = fd.get('start_date') as string;
     const start_time = fd.get('start_time') as string;
     const end_time = fd.get('end_time') as string;
+    const recurrence = fd.get('recurrence') as string;
+    const occurrences = recurrence === "none" ? 1 : parseInt(fd.get('occurrences') as string) || 1;
     
-    if(!space_id || !start_time || !end_time) return;
+    if(!space_id || !start_date_str || !start_time || !end_time) return;
 
-    let currentSunday = nextSunday(new Date());
+    let currentDay = new Date(start_date_str);
     const blocks = [];
 
-    // Générer pour les 52 prochains dimanches
-    for (let i = 0; i < 52; i++) {
-      const st = new Date(currentSunday); const [sh, sm] = start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
-      const et = new Date(currentSunday); const [eh, em] = end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
+    for (let i = 0; i < occurrences; i++) {
+      const st = new Date(currentDay); const [sh, sm] = start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
+      const et = new Date(currentDay); const [eh, em] = end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
       
       blocks.push({
         space_id,
-        user_name: "🔐 Blocage Récurrent (Admin)",
-        reason: "Créneau bloqué automatiquement pour les activités du dimanche.",
+        user_name: "🔐 Blocage Admin",
+        reason: "Créneau bloqué automatiquement par l'administration.",
         start_time: st.toISOString(),
         end_time: et.toISOString(),
         status: 'confirmed'
       });
-      currentSunday = addDays(currentSunday, 7);
+
+      if (recurrence === 'daily') currentDay = addDays(currentDay, 1);
+      else if (recurrence === 'weekly') currentDay = addDays(currentDay, 7);
+      else if (recurrence === 'monthly') currentDay = addMonths(currentDay, 1);
     }
 
     const { error } = await supabase.from("bookings").insert(blocks);
     if(error) alert("Erreur lors de la création des blocs.");
-    else { alert("52 dimanches bloqués avec succès !"); setShowRecurrentModal(false); fetchBookings(); }
+    else { alert(`${occurrences} bloc(s) créé(s) avec succès !`); setShowBlockModal(false); fetchBookings(); }
   };
 
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
@@ -231,9 +240,9 @@ export default function AdminPage() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 flex-shrink-0">
+        <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 h-[89px] flex-shrink-0">
           <div className="flex items-center space-x-4">
-            <button onClick={() => setShowRecurrentModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-sm transition-colors border border-indigo-100"><CalendarRange size={16} className="mr-2"/> Bloquer les dimanches</button>
+            <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-sm transition-colors border border-indigo-100 shadow-sm"><CalendarRange size={16} className="mr-2"/> Bloquer des créneaux</button>
           </div>
           <div className="flex items-center space-x-4">
             <div className="relative hidden md:block">
@@ -308,22 +317,33 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* MODAL BLOCAGE RECURRENT */}
-      {showRecurrentModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowRecurrentModal(false)}}>
+      {/* MODAL BLOCAGE MULTIPLE */}
+      {showBlockModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900">Blocage Récurrent</h2>
-              <button onClick={() => setShowRecurrentModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5"/></button>
+              <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900">Bloquer des créneaux</h2>
+              <button onClick={() => setShowBlockModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5"/></button>
             </div>
-            <p className="text-sm text-gray-500 mb-6 font-medium">Cet outil va bloquer automatiquement la salle choisie pour les <strong>52 prochains dimanches</strong>. Vous pourrez supprimer ces blocs individuellement dans le calendrier si besoin.</p>
-            <form onSubmit={generateRecurringSundays} className="space-y-4">
+            <form onSubmit={generateBlocks} className="space-y-4">
               <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Espace à bloquer</label><select name="space_id" required className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none">{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Date de début</label><input type="date" name="start_date" required defaultValue={format(currentDate, "yyyy-MM-dd")} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">De</label><input type="time" name="start_time" required defaultValue="08:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="13:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="12:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Générer les 52 dimanches</button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Récurrence</label>
+                  <select name="recurrence" value={recurrenceOption} onChange={(e) => setRecurrenceOption(e.target.value)} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none">
+                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Toutes les semaines</option><option value="monthly">Tous les mois</option>
+                  </select>
+                </div>
+                {recurrenceOption !== "none" && (
+                  <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Combien de fois ?</label><input type="number" name="occurrences" required min="2" max="100" defaultValue="10" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+                )}
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Générer les blocs</button>
             </form>
           </div>
         </div>
@@ -356,7 +376,7 @@ export default function AdminPage() {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <p className="font-black text-xl text-gray-900">{selectedBooking.user_name}</p>
-                          <p className="text-xs text-gray-500 font-medium mt-1">{selectedBooking.user_phone} • {selectedBooking.user_email}</p>
+                          {selectedBooking.user_email && <p className="text-xs text-gray-500 font-medium mt-1">{selectedBooking.user_phone} • {selectedBooking.user_email}</p>}
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100" style={{color: selectedBooking.spaces?.color}}>{selectedBooking.spaces?.name}</span>
                       </div>
@@ -372,10 +392,13 @@ export default function AdminPage() {
                   </div>
                 )}
                 
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Facultatif - Envoyé au demandeur)</label>
-                  <textarea placeholder="Ex: Réservation validée, mais attention à bien éteindre en partant..." className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all font-medium h-24 resize-none" value={adminMessage} onChange={e => setAdminMessage(e.target.value)} />
-                </div>
+                {/* Ne pas afficher le motif d'envoi d'email pour les blocages admin */}
+                {selectedBooking.user_email && (
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Facultatif - Envoyé au demandeur)</label>
+                    <textarea placeholder="Ex: Réservation validée, mais attention à bien éteindre en partant..." className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all font-medium h-24 resize-none" value={adminMessage} onChange={e => setAdminMessage(e.target.value)} />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                   <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-2"/> Supprimer</button>
