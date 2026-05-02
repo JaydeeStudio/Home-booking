@@ -237,41 +237,42 @@ export default function Home() {
           </div>
         </div>
 
-        {/* HEADER DE NAVIGATION (3 BLOCS HARMONISÉS) */}
-        <header className="px-3 lg:px-8 py-3 lg:py-4 flex justify-between items-center z-10 flex-shrink-0 w-full">
+        {/* HEADER DE NAVIGATION PUBLIC */}
+        <header className="px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-10 flex-shrink-0 w-full gap-2 lg:gap-0">
           
-          {/* 1. Bloc gauche : Icône Calendrier */}
-          <div className="flex-1 flex justify-start lg:hidden">
+          {/* Mobile: Icône Calendrier à gauche */}
+          <div className="lg:hidden flex-shrink-0 w-[80px]">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
               <CalendarIcon size={20} />
             </button>
           </div>
-          <div className="hidden lg:block flex-1"></div>
 
-          {/* 2. Bloc centre : Date et flèches */}
-          <div className="flex items-center justify-between w-full max-w-[190px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-2">
-            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
-              <ChevronLeft size={18}/>
-            </button>
-            
-            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
-              <span className="text-[12px] sm:text-lg font-black capitalize truncate">
-                <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-                <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
-              </span>
+          {/* Bureau/Mobile: Date Picker (Centré sur mobile, Gauche sur desktop) */}
+          <div className="flex-1 flex justify-center lg:justify-start">
+            <div className="flex items-center justify-between w-full max-w-[200px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm h-[48px]">
+              <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
+                <ChevronLeft size={18}/>
+              </button>
+              
+              <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
+                <span className="text-[13px] sm:text-lg font-black capitalize truncate">
+                  <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                  <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
+                </span>
+              </div>
+
+              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 hover:bg-gray-100 bg-gray-50 rounded-lg sm:rounded-xl transition">
+                <ChevronRight size={18}/>
+              </button>
             </div>
-
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 hover:bg-gray-100 bg-gray-50 rounded-lg sm:rounded-xl transition">
-              <ChevronRight size={18}/>
-            </button>
           </div>
 
-          {/* 3. Bloc droite : Demande */}
-          <div className="flex-1 flex justify-end">
-            <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-3 sm:px-6 py-2.5 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs">
-              <Plus size={16} className="mr-1 lg:mr-2" /> 
-              <span className="hidden sm:inline">Demander</span>
-              <span className="sm:hidden">Demande</span>
+          {/* Bureau/Mobile: Bouton Demander à droite */}
+          <div className="flex-shrink-0 w-[80px] lg:w-auto flex justify-end">
+            <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="h-[48px] bg-black text-white px-3 sm:px-6 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center justify-center text-[10px] lg:text-xs">
+              <Plus size={16} className="lg:mr-2" /> 
+              <span className="hidden lg:inline">Demander une salle</span>
+              <span className="hidden sm:inline lg:hidden ml-1">Demander</span>
             </button>
           </div>
         </header>
@@ -307,6 +308,7 @@ export default function Home() {
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             
+                            {/* Affichage normal des réservations */}
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                               <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
                                 {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}

@@ -288,53 +288,65 @@ export default function AdminPage() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* HEADER DE NAVIGATION ADMIN */}
-        <header className="bg-white border-b border-gray-100 px-3 lg:px-8 py-3 lg:py-4 flex justify-between items-center z-40 flex-shrink-0 w-full">
+        {/* HEADER DE NAVIGATION ADMIN (3 BLOCS HARMONISÉS) */}
+        <header className="bg-white border-b border-gray-100 px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-40 flex-shrink-0 w-full gap-2 lg:gap-4">
           
           {/* 1. Bloc gauche : Icône Calendrier (Mobile) */}
-          <div className="flex-1 flex justify-start lg:hidden">
+          <div className="lg:hidden flex-shrink-0 w-[80px]">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
               <CalendarIcon size={20} />
             </button>
           </div>
-          <div className="hidden lg:flex flex-1 justify-start">
-            {/* Desktop a la sidebar complète à gauche */}
-          </div>
 
-          {/* 2. Bloc centre : Date et flèches */}
-          <div className="flex items-center justify-between w-full max-w-[190px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm shrink-0 mx-2">
-            <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
-            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
-               <span className="text-[12px] sm:text-lg font-black capitalize truncate">
-                  <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-                  <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
-               </span>
+          {/* Bureau/Mobile : Date Picker (Centré sur mobile, Gauche sur desktop) */}
+          <div className="flex-1 flex justify-center lg:justify-start">
+            <div className="flex items-center justify-between w-full max-w-[200px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm h-[48px]">
+              <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
+              <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
+                 <span className="text-[13px] sm:text-lg font-black capitalize truncate">
+                    <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                    <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
+                 </span>
+              </div>
+              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
             </div>
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
           </div>
 
-          {/* 3. Bloc droite : Actions */}
-          <div className="flex-1 flex justify-end items-center space-x-1.5 sm:space-x-4">
+          {/* 3. Bureau/Mobile : Actions à droite */}
+          <div className="flex-shrink-0 w-[80px] lg:w-auto flex items-center justify-end gap-2 lg:gap-4">
+            
+            {/* Recherche Desktop */}
             <div className="relative hidden lg:block">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-48 lg:w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-0 bg-white rounded-2xl text-sm border border-gray-200 w-64 focus:ring-2 focus:ring-black outline-none font-bold transition-all shadow-sm h-[48px]" />
             </div>
             
-            <button onClick={() => setShowBlockModal(true)} className="p-2 sm:p-3 bg-indigo-50 text-indigo-700 rounded-xl sm:rounded-2xl hover:bg-indigo-100 font-bold flex items-center transition-colors border border-indigo-100 shadow-sm">
-              <Lock size={16} className="lg:mr-2"/> <span className="hidden lg:inline text-sm">Bloquer des créneaux</span>
+            {/* Boutons Desktop (Bloquer + Logout) */}
+            <button onClick={() => setShowBlockModal(true)} className="hidden lg:flex h-[48px] px-5 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold items-center justify-center transition-colors border border-indigo-100 shadow-sm text-xs leading-snug text-left">
+              <Lock size={18} className="mr-3"/>
+              <span>Bloquer des<br/>créneaux</span>
             </button>
 
-            <button onClick={() => supabase.auth.signOut()} className="p-2 lg:p-3 bg-red-50 text-red-600 rounded-xl lg:rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors border border-red-100 shadow-sm">
-              <LogOut size={16} className="lg:mr-2"/> <span className="hidden lg:inline">Déconnexion</span>
+            <button onClick={() => supabase.auth.signOut()} className="hidden lg:flex h-[48px] px-5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 font-bold items-center text-sm transition-colors border border-red-100 shadow-sm">
+              <LogOut size={18} className="mr-3"/> Déconnexion
             </button>
+
+            {/* Boutons Mobile (Bloquer + Logout) */}
+            <button onClick={() => setShowBlockModal(true)} className="lg:hidden h-[48px] w-[48px] bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 flex items-center justify-center">
+              <Lock size={20}/>
+            </button>
+            <button onClick={() => supabase.auth.signOut()} className="lg:hidden h-[48px] w-[48px] bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center">
+              <LogOut size={20}/>
+            </button>
+
           </div>
         </header>
 
-        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
-        <div className="lg:hidden p-4 bg-white border-b border-gray-100 flex flex-col gap-4 flex-shrink-0">
+        {/* NOUVEAU: RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
+        <div className="lg:hidden p-4 bg-white border-b border-gray-100 flex flex-col gap-4 flex-shrink-0 shadow-sm z-30">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold shadow-inner" />
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-3 bg-gray-50 rounded-xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold" />
           </div>
           {pendingBookings.length > 0 && (
             <div>
