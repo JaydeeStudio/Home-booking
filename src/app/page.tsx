@@ -124,7 +124,7 @@ export default function Home() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
-{/* HEADER HAUT POUR MOBILE */}
+      {/* HEADER HAUT POUR MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
         <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer">
           <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
@@ -161,7 +161,6 @@ export default function Home() {
                 const isSelected = isSameDay(day, currentDate);
                 return (
                   <div key={i} onClick={() => { if(!isPast) { setCurrentDate(day); if(window.innerWidth < 1024) setIsSidebarOpen(false); }}} 
-                    // Ajout du active:scale-90 pour l'effet de toucher
                     className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
                       ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
                       ${!isPast && !isSelected ? 'text-gray-700' : ''} 
@@ -180,7 +179,7 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION */}
+        {/* SECTION HERO D'EXPLICATION (TEXTE ORIGINAL RESTAURÉ) */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
           <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
@@ -197,7 +196,6 @@ export default function Home() {
           <div className="flex items-center space-x-1 lg:space-x-4 bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm">
             <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}><ChevronLeft size={18}/></button>
             
-            {/* ZONE DATE + CALENDRIER CLICABLE */}
             <div className="flex items-center space-x-1.5 lg:space-x-2 px-1 lg:px-2 cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setIsSidebarOpen(true)}>
               <CalendarIcon size={16} className="text-gray-500 lg:hidden" />
               <span className="text-sm sm:text-lg font-black lg:min-w-[180px] text-center capitalize truncate">
@@ -237,19 +235,16 @@ export default function Home() {
                         const isPast = slotTime < new Date();
                         
                         return (
-                          <td key={space.id} className={`border-r border-b border-gray-100 relative p-0 h-16 group ${isPast ? 'bg-gray-200/50' : 'bg-white hover:bg-gray-50 transition-colors'}`}>
+                          <td key={space.id} className={`border-r border-b border-gray-100 relative p-0 h-16 group ${isPast ? 'bg-gray-200' : 'bg-white hover:bg-gray-50 transition-colors'}`}>
                             <div onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} className={`w-full h-full flex items-center justify-center ${isOccupied && !isPast ? 'bg-gray-50/50 cursor-not-allowed' : isPast ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             
+                            {/* Affichage normal des réservations (même passées) */}
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
-                              isPast ? (
-                                <div key={b.id} className="absolute inset-x-1.5 z-10 rounded-xl pointer-events-none opacity-40" style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: '#9ca3af' }}></div>
-                              ) : (
-                                <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
-                                  {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
-                                </div>
-                              )
+                              <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
+                                {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
+                              </div>
                             ))}
                           </td>
                         );

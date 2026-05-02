@@ -298,10 +298,10 @@ export default function AdminPage() {
                 </div>
              </div>
           ) : (
-            <div className="p-4 border-b bg-white flex items-center space-x-2 sm:space-x-4 z-40">
+            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
+              <div className="p-4 border-b bg-white flex items-center space-x-2 sm:space-x-4 z-40">
                 <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
                 
-                {/* ZONE DATE + CALENDRIER CLICABLE */}
                 <div className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setIsSidebarOpen(true)}>
                   <CalendarIcon size={16} className="text-gray-500 lg:hidden" />
                   <span className="font-black text-base sm:text-lg capitalize">
