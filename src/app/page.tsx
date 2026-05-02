@@ -124,16 +124,12 @@ export default function Home() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
-      {/* HEADER HAUT POUR MOBILE */}
+{/* HEADER HAUT POUR MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
         <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer">
           <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Home<br/><span className="text-gray-400 text-xs">Réservation</span></h1>
         </div>
-        {/* ICI : Remplacement du Menu par l'icône Calendrier */}
-        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 hover:bg-gray-100 transition-colors">
-          <CalendarIcon size={20} />
-        </button>
       </div>
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
@@ -198,12 +194,21 @@ export default function Home() {
         </div>
 
         <header className="px-4 lg:px-8 py-4 flex justify-between items-center z-10 flex-shrink-0">
-          <div className="flex items-center space-x-2 lg:space-x-4 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="flex items-center space-x-1 lg:space-x-4 bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm">
             <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}><ChevronLeft size={18}/></button>
-            <span className="text-sm sm:text-lg font-black lg:min-w-[180px] text-center capitalize truncate px-2">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+            
+            {/* ZONE DATE + CALENDRIER CLICABLE */}
+            <div className="flex items-center space-x-1.5 lg:space-x-2 px-1 lg:px-2 cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setIsSidebarOpen(true)}>
+              <CalendarIcon size={16} className="text-gray-500 lg:hidden" />
+              <span className="text-sm sm:text-lg font-black lg:min-w-[180px] text-center capitalize truncate">
+                <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
+              </span>
+            </div>
+
             <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 bg-gray-50 rounded-xl transition"><ChevronRight size={18}/></button>
           </div>
-          <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-5 lg:px-8 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs"><Plus size={16} className="mr-2" /> Demander une salle</button>
+          <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-5 lg:px-8 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs"><Plus size={16} className="mr-2 hidden sm:block" /> Demander</button>
         </header>
 
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">

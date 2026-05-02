@@ -202,9 +202,6 @@ export default function AdminPage() {
           <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Admin<br/><span className="text-gray-400 text-xs">Panel</span></h1>
         </div>
-        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 hover:bg-gray-100 transition-colors">
-          <CalendarIcon size={20} />
-        </button>
       </div>
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-none transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
@@ -301,10 +298,18 @@ export default function AdminPage() {
                 </div>
              </div>
           ) : (
-            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
-              <div className="p-4 border-b bg-white flex items-center space-x-4 z-40">
+            <div className="p-4 border-b bg-white flex items-center space-x-2 sm:space-x-4 z-40">
                 <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
-                <span className="font-black text-lg capitalize">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                
+                {/* ZONE DATE + CALENDRIER CLICABLE */}
+                <div className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setIsSidebarOpen(true)}>
+                  <CalendarIcon size={16} className="text-gray-500 lg:hidden" />
+                  <span className="font-black text-base sm:text-lg capitalize">
+                    <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                    <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
+                  </span>
+                </div>
+
                 <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
               </div>
               <div className="flex-1 overflow-auto relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
