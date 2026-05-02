@@ -109,7 +109,9 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    if(!booking.user_email) return; 
+    // Si c'est un bloc généré par l'admin qui utilise sa propre adresse, on n'envoie pas d'email
+    if(!booking.user_email || booking.user_email === user?.email) return; 
+    
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
     await fetch('/api/send-email', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -144,8 +146,14 @@ export default function AdminPage() {
       const et = new Date(currentDay); const [eh, em] = end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
       
       blocks.push({
-        space_id, user_name: block_name, reason: "Créneau bloqué automatiquement par l'administration.",
-        start_time: st.toISOString(), end_time: et.toISOString(), status: 'confirmed'
+        space_id, 
+        user_name: block_name, 
+        user_email: user?.email || "admin@home.com", // Ajout de l'email pour satisfaire Supabase
+        user_phone: "-", // Ajout du téléphone pour satisfaire Supabase
+        reason: "Créneau bloqué automatiquement par l'administration.",
+        start_time: st.toISOString(), 
+        end_time: et.toISOString(), 
+        status: 'confirmed'
       });
 
       if (recurrence === 'daily') currentDay = addDays(currentDay, 1);

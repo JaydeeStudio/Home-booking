@@ -174,14 +174,14 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO */}
+        {/* SECTION HERO D'EXPLICATION (Restaurée) */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
-          <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-center">
+          <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
             <div>
-              <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-1">Portail de réservation des salles</h2>
-              <p className="text-gray-500 font-medium text-sm lg:text-base leading-relaxed">
-                Cliquez sur le nom d'une salle pour voir ses détails. Sélectionnez une date, puis choisissez un créneau libre pour formuler votre demande. Les créneaux passés sont grisés.
+              <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-2">Bienvenue sur le portail de réservation.</h2>
+              <p className="text-gray-500 font-medium text-sm lg:text-base max-w-3xl leading-relaxed">
+                Sélectionnez une date dans le calendrier pour visualiser les disponibilités de nos salles en temps réel. Cliquez sur un créneau libre pour formuler votre demande. Chaque demande est soumise à la validation de notre administration.
               </p>
             </div>
           </div>
@@ -227,14 +227,11 @@ export default function Home() {
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             
+                            {/* Affichage normal des réservations (même passées) */}
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
-                              isPast ? (
-                                <div key={b.id} className="absolute inset-x-1.5 z-10 rounded-xl pointer-events-none opacity-40" style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: '#9ca3af' }}></div>
-                              ) : (
-                                <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
-                                  {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
-                                </div>
-                              )
+                              <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
+                                {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
+                              </div>
                             ))}
                           </td>
                         );
@@ -261,8 +258,6 @@ export default function Home() {
                     <>
                       <button onClick={() => setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)} className="absolute left-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronLeft size={20}/></button>
                       <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="absolute right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronRight size={20}/></button>
-                      
-                      {/* CORRECTION DU TYPE ICI */}
                       <div className="absolute bottom-4 flex space-x-1.5">
                         {spaceImages.map((_: any, idx: number) => (
                           <div key={idx} className={`w-2 h-2 rounded-full ${idx === currentImageIndex ? 'bg-white' : 'bg-white/50'}`} />
@@ -322,7 +317,7 @@ export default function Home() {
                 </label>
               </div>
 
-              <button type="submit" disabled={!formData.cgv_accepted} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 transition-transform shadow-xl ${formData.cgv_accepted ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
+              <button type="submit" disabled={!formData.cgv_accepted} className={`w-full text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 transition-transform shadow-xl text-sm ${formData.cgv_accepted ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
             </form>
           </div>
         </div>
