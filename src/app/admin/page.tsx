@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
-  format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
-  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
+  format, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
+  eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, CalendarRange } from "lucide-react";
@@ -26,7 +26,6 @@ export default function AdminPage() {
   const [adminMessage, setAdminMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Modal pour Bloquer des créneaux
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [recurrenceOption, setRecurrenceOption] = useState("none");
   
@@ -122,7 +121,6 @@ export default function AdminPage() {
     });
   };
 
-  // FONCTION POUR BLOQUER DES CRÉNEAUX MULTIPLES
   const generateBlocks = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -131,34 +129,35 @@ export default function AdminPage() {
     const start_time = fd.get('start_time') as string;
     const end_time = fd.get('end_time') as string;
     const recurrence = fd.get('recurrence') as string;
-    const occurrences = recurrence === "none" ? 1 : parseInt(fd.get('occurrences') as string) || 1;
+    const end_recurrence_str = fd.get('end_recurrence') as string;
+    const block_name = fd.get('block_name') as string || "🔐 Blocage Admin";
     
     if(!space_id || !start_date_str || !start_time || !end_time) return;
 
     let currentDay = new Date(start_date_str);
+    const endRecDate = recurrence === "none" ? currentDay : new Date(end_recurrence_str);
     const blocks = [];
+    let limit = 0; // sécurité
 
-    for (let i = 0; i < occurrences; i++) {
+    while (currentDay <= endRecDate && limit < 365) {
       const st = new Date(currentDay); const [sh, sm] = start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
       const et = new Date(currentDay); const [eh, em] = end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
       
       blocks.push({
-        space_id,
-        user_name: "🔐 Blocage Admin",
-        reason: "Créneau bloqué automatiquement par l'administration.",
-        start_time: st.toISOString(),
-        end_time: et.toISOString(),
-        status: 'confirmed'
+        space_id, user_name: block_name, reason: "Créneau bloqué automatiquement par l'administration.",
+        start_time: st.toISOString(), end_time: et.toISOString(), status: 'confirmed'
       });
 
       if (recurrence === 'daily') currentDay = addDays(currentDay, 1);
       else if (recurrence === 'weekly') currentDay = addDays(currentDay, 7);
       else if (recurrence === 'monthly') currentDay = addMonths(currentDay, 1);
+      else break;
+      limit++;
     }
 
     const { error } = await supabase.from("bookings").insert(blocks);
     if(error) alert("Erreur lors de la création des blocs.");
-    else { alert(`${occurrences} bloc(s) créé(s) avec succès !`); setShowBlockModal(false); fetchBookings(); }
+    else { alert(`${blocks.length} créneau(x) bloqué(s) avec succès !`); setShowBlockModal(false); fetchBookings(); }
   };
 
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
@@ -207,6 +206,12 @@ export default function AdminPage() {
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto flex flex-col">
+          {/* RECHERCHE MOBILE */}
+          <div className="lg:hidden relative mb-6">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold" />
+          </div>
+
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6 shrink-0">
             <div className="flex justify-between items-center mb-4">
               <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
@@ -239,21 +244,21 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 h-[89px] flex-shrink-0">
           <div className="flex items-center space-x-4">
-            <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-sm transition-colors border border-indigo-100 shadow-sm"><CalendarRange size={16} className="mr-2"/> Bloquer des créneaux</button>
+            <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-xs lg:text-sm transition-colors border border-indigo-100 shadow-sm"><CalendarRange size={16} className="mr-2"/> Bloquer des créneaux</button>
           </div>
           <div className="flex items-center space-x-4">
             <div className="relative hidden md:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Recherche (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
+              <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
             </div>
             <button onClick={() => supabase.auth.signOut()} className="p-3 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors"><LogOut size={16} className="mr-2 hidden sm:block"/> Déconnexion</button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-hidden p-4 lg:p-8 bg-gray-50">
+        <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           {searchTerm ? (
              <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-xl p-8 overflow-auto">
                 <div className="flex items-center justify-between mb-8 border-b pb-4">
@@ -275,13 +280,13 @@ export default function AdminPage() {
                 </div>
              </div>
           ) : (
-            <div className="h-full w-full bg-white rounded-3xl border border-gray-200 shadow-xl flex flex-col overflow-hidden">
+            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
               <div className="p-4 border-b bg-white flex items-center space-x-4 z-40">
                 <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
                 <span className="font-black text-lg capitalize">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
                 <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
               </div>
-              <div className="flex-1 overflow-auto relative">
+              <div className="flex-1 overflow-auto relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <table className="w-full border-separate border-spacing-0 min-w-[800px]">
                   <thead>
                     <tr className="sticky top-0 z-30">
@@ -326,24 +331,25 @@ export default function AdminPage() {
               <button onClick={() => setShowBlockModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5"/></button>
             </div>
             <form onSubmit={generateBlocks} className="space-y-4">
-              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Espace à bloquer</label><select name="space_id" required className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none">{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Date de début</label><input type="date" name="start_date" required defaultValue={format(currentDate, "yyyy-MM-dd")} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Espace à bloquer</label><select name="space_id" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none">{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Nom du créneau</label><input type="text" name="block_name" defaultValue="🔐 Blocage Admin" placeholder="Ex: Célébrations" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Date de début</label><input type="date" name="start_date" required defaultValue={format(currentDate, "yyyy-MM-dd")} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">De</label><input type="time" name="start_time" required defaultValue="08:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="12:00" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">De</label><input type="time" name="start_time" required defaultValue="08:00" className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="12:00" className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Récurrence</label>
-                  <select name="recurrence" value={recurrenceOption} onChange={(e) => setRecurrenceOption(e.target.value)} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none">
-                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Toutes les semaines</option><option value="monthly">Tous les mois</option>
+                  <select name="recurrence" value={recurrenceOption} onChange={(e) => setRecurrenceOption(e.target.value)} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none">
+                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Ttes les semaines</option><option value="monthly">Tous les mois</option>
                   </select>
                 </div>
                 {recurrenceOption !== "none" && (
-                  <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Combien de fois ?</label><input type="number" name="occurrences" required min="2" max="100" defaultValue="10" className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
+                  <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Jusqu'au</label><input type="date" name="end_recurrence" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
                 )}
               </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Générer les blocs</button>
+              <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Bloquer ces créneaux</button>
             </form>
           </div>
         </div>
@@ -392,7 +398,6 @@ export default function AdminPage() {
                   </div>
                 )}
                 
-                {/* Ne pas afficher le motif d'envoi d'email pour les blocages admin */}
                 {selectedBooking.user_email && (
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Facultatif - Envoyé au demandeur)</label>

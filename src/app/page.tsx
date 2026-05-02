@@ -19,7 +19,10 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [viewSpace, setViewSpace] = useState<any | null>(null); // Pour la fenêtre de la salle
+  
+  // États pour le modal de la salle et son carousel
+  const [viewSpace, setViewSpace] = useState<any | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const [formData, setFormData] = useState({
     space_id: "", first_name: "", last_name: "", user_email: "", 
@@ -105,6 +108,13 @@ export default function Home() {
 
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
 
+  const openSpaceModal = (space: any) => {
+    setViewSpace(space);
+    setCurrentImageIndex(0);
+  };
+
+  const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
+
   const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
   const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(monthEnd, { weekStartsOn: 1 }) });
   const weekDaysHeader = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
@@ -162,16 +172,16 @@ export default function Home() {
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/20 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
-      <div className="flex-1 flex flex-col min-w-0 relative bg-gray-50">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION */}
+        {/* SECTION HERO */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
           <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
             <div>
               <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-1">Portail de réservation des salles</h2>
               <p className="text-gray-500 font-medium text-sm lg:text-base leading-relaxed">
-                Cliquez sur le nom d'une salle pour voir ses détails. Sélectionnez une date dans le calendrier, puis choisissez un créneau libre pour formuler votre demande. L'administration vous confirmera la réservation par e-mail.
+                Cliquez sur le nom d'une salle pour voir ses détails. Sélectionnez une date, puis choisissez un créneau libre pour formuler votre demande. Les créneaux passés sont grisés.
               </p>
             </div>
           </div>
@@ -186,15 +196,15 @@ export default function Home() {
           <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-5 lg:px-8 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs"><Plus size={16} className="mr-2" /> Demander une salle</button>
         </header>
 
-        <main className="flex-1 overflow-hidden px-4 lg:px-8 pb-4 lg:pb-8 relative">
-          <div className="h-full w-full bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto relative scroll-smooth">
+        <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
+          <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-auto relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
               <table className="w-full border-separate border-spacing-0 min-w-[800px]">
                 <thead>
                   <tr className="sticky top-0 z-30">
                     <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20 shadow-[1px_1px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
                     {spaces.map(space => (
-                      <th key={space.id} onClick={() => setViewSpace(space)} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight cursor-pointer hover:bg-gray-50 transition-colors group">
+                      <th key={space.id} onClick={() => openSpaceModal(space)} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight cursor-pointer hover:bg-gray-50 transition-colors group">
                         <span className="text-[11px] lg:text-xs font-black uppercase tracking-widest block truncate group-hover:scale-105 transition-transform" style={{ color: space.color }}>{space.name}</span>
                         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mt-1">{space.capacity ? `${space.capacity} places` : 'Capacité N/A'}</span>
                       </th>
@@ -210,16 +220,21 @@ export default function Home() {
                         const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
                         const slotTime = new Date(currentDate); slotTime.setHours(h, 0, 0, 0);
                         const isPast = slotTime < new Date();
+                        
                         return (
-                          <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 group">
-                            <div onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} className={`w-full h-full transition-colors flex items-center justify-center ${isOccupied || isPast ? 'bg-gray-50/50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}>
+                          <td key={space.id} className={`border-r border-b border-gray-100 relative p-0 h-16 group ${isPast ? 'bg-gray-200/50' : 'bg-white hover:bg-gray-50 transition-colors'}`}>
+                            <div onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} className={`w-full h-full flex items-center justify-center ${isOccupied && !isPast ? 'bg-gray-50/50 cursor-not-allowed' : isPast ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                              {isPast && !isOccupied && <span className="text-[9px] text-gray-300 font-medium opacity-50 hidden lg:block">Passé</span>}
                             </div>
+                            
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
-                              <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
-                                {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
-                              </div>
+                              isPast ? (
+                                <div key={b.id} className="absolute inset-x-1.5 z-10 rounded-xl pointer-events-none opacity-40" style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: '#9ca3af' }}></div>
+                              ) : (
+                                <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
+                                  {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
+                                </div>
+                              )
                             ))}
                           </td>
                         );
@@ -233,20 +248,34 @@ export default function Home() {
         </main>
       </div>
 
-      {/* MODAL PHOTOS DE LA SALLE */}
+      {/* MODAL PHOTOS DE LA SALLE (CAROUSEL) */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
-            <div className="relative h-64 bg-gray-100 flex items-center justify-center border-b border-gray-200">
-              {viewSpace.image_url ? (
-                <img src={viewSpace.image_url} alt={viewSpace.name} className="w-full h-full object-cover" />
+            <div className="relative h-64 bg-gray-100 flex items-center justify-center border-b border-gray-200 group">
+              {spaceImages.length > 0 ? (
+                <>
+                  <img src={spaceImages[currentImageIndex]} alt={`${viewSpace.name} ${currentImageIndex+1}`} className="w-full h-full object-cover transition-opacity duration-300" />
+                  
+                  {spaceImages.length > 1 && (
+                    <>
+                      <button onClick={() => setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)} className="absolute left-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronLeft size={20}/></button>
+                      <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="absolute right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronRight size={20}/></button>
+                      <div className="absolute bottom-4 flex space-x-1.5">
+                        {spaceImages.map((_, idx) => (
+                          <div key={idx} className={`w-2 h-2 rounded-full ${idx === currentImageIndex ? 'bg-white' : 'bg-white/50'}`} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="text-center text-gray-400">
                    <Info className="w-10 h-10 mx-auto mb-2 opacity-50" />
                    <p className="font-bold text-sm">Aucune photo disponible</p>
                 </div>
               )}
-              <button onClick={() => setViewSpace(null)} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-sm"><X className="w-5 h-5 text-black" /></button>
+              <button onClick={() => setViewSpace(null)} className="absolute top-4 right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-sm z-10"><X className="w-5 h-5 text-black" /></button>
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-black uppercase tracking-tight mb-2" style={{ color: viewSpace.color }}>{viewSpace.name}</h2>
