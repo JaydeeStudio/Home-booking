@@ -300,11 +300,13 @@ export default function AdminPage() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
+        
+        {/* HEADER DE NAVIGATION ADMIN (3 BLOCS HARMONISÉS) */}
         <header className="bg-white border-b border-gray-100 px-4 lg:px-8 py-4 flex justify-between items-center z-40 h-[89px] flex-shrink-0 gap-2">
           
-          {/* Bloc 1 : Icône Calendrier à gauche (Mobile) ou Bouton Bloquer (Desktop) */}
+          {/* 1. Bloc gauche : Icône Calendrier (Mobile) ou Bouton Bloquer (Desktop) */}
           <div className="flex-1 flex justify-start lg:hidden">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-black transition-colors bg-transparent border-none outline-none">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
               <CalendarIcon size={24} />
             </button>
           </div>
@@ -312,26 +314,25 @@ export default function AdminPage() {
             <button onClick={() => setShowBlockModal(true)} className="p-3 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold flex items-center text-xs lg:text-sm transition-colors border border-indigo-100 shadow-sm"><CalendarRange size={16} className="mr-2"/> Bloquer des créneaux</button>
           </div>
 
-          {/* Bloc 2 : Date au centre */}
-          <div className="flex items-center space-x-1 lg:space-x-4 bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0">
+          {/* 2. Bloc centre : Date et flèches */}
+          <div className="flex items-center justify-between w-[55%] sm:w-[300px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0">
             <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
-            <span className="text-sm sm:text-lg font-black lg:min-w-[180px] text-center capitalize truncate px-1 lg:px-2">
-              <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-              <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
-            </span>
+            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-1" onClick={() => setIsSidebarOpen(true)}>
+               <span className="text-[13px] sm:text-lg font-black capitalize">
+                  <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                  <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
+               </span>
+            </div>
             <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
           </div>
 
-          {/* Bloc 3 : Boutons de droite */}
+          {/* 3. Bloc droite : Actions */}
           <div className="flex-1 flex justify-end items-center space-x-2 lg:space-x-4">
             <div className="relative hidden md:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Recherche..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-48 lg:w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
+              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-48 lg:w-64 focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold transition-all" />
             </div>
-            
-            {/* Bouton Bloquer sur mobile (car caché à gauche) */}
             <button onClick={() => setShowBlockModal(true)} className="lg:hidden p-2 bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100"><CalendarRange size={20}/></button>
-            
             <button onClick={() => supabase.auth.signOut()} className="p-2 lg:p-3 bg-red-50 text-red-600 rounded-xl lg:rounded-2xl hover:bg-red-100 font-bold flex items-center text-sm transition-colors">
               <LogOut size={16} className="lg:mr-2"/> <span className="hidden lg:inline">Déconnexion</span>
             </button>
@@ -360,20 +361,7 @@ export default function AdminPage() {
                 </div>
              </div>
           ) : (
-            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
-              <div className="p-4 border-b bg-white flex items-center space-x-2 sm:space-x-4 z-40">
-                <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
-                
-                <div className="flex items-center space-x-1.5 sm:space-x-2 cursor-pointer hover:opacity-70 transition-opacity" onClick={() => setIsSidebarOpen(true)}>
-                  <CalendarIcon size={16} className="text-gray-500 lg:hidden" />
-                  <span className="font-black text-base sm:text-lg capitalize">
-                    <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-                    <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
-                  </span>
-                </div>
-
-                <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 bg-gray-50 rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
-              </div>
+            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden mt-4 lg:mt-0">
               <div className="flex-1 overflow-auto relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <table className="w-full border-separate border-spacing-0 min-w-[800px]">
                   <thead>

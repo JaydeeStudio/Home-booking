@@ -114,19 +114,18 @@ export default function Home() {
     setCurrentImageIndex(0);
   };
 
-const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
+  const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
 
-  // --- LOGIQUE DE SWIPE MOBILE ---
   const minSwipeDistance = 50;
   const onTouchStart = (e: React.TouchEvent) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
   const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
-    if (distance > minSwipeDistance) setCurrentImageIndex(p => (p + 1) % spaceImages.length); // Glissement gauche -> Suivant
-    if (distance < -minSwipeDistance) setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1); // Glissement droite -> Précédent
+    if (distance > minSwipeDistance) setCurrentImageIndex(p => (p + 1) % spaceImages.length);
+    if (distance < -minSwipeDistance) setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1);
   };
-  // -------------------------------
+
   const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
   const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(monthEnd, { weekStartsOn: 1 }) });
   const weekDaysHeader = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
@@ -145,16 +144,53 @@ const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split
         </div>
       </div>
 
-      {/* SIDEBAR (VISIBLE UNIQUEMENT SUR DESKTOP) */}
-      <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="p-6 border-b border-gray-100 hidden lg:flex items-center justify-between">
           <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
             <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
             <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Home</span><span className="block text-gray-400 text-sm">Réservation</span></h1>
           </div>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto">
+        {/* MODAL CALENDRIER (VISIBLE UNIQUEMENT SUR MOBILE) */}
+        {isSidebarOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
+            <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
+                <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
+              </div>
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
+                  <div className="flex space-x-1">
+                    <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronLeft className="w-4 h-4" /></button>
+                    <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronRight className="w-4 h-4" /></button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center mb-2">{weekDaysHeader.map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
+                <div className="grid grid-cols-7 gap-1">
+                  {calendarDays.map((day, i) => {
+                    const isPast = isBefore(day, today);
+                    const isSelected = isSameDay(day, currentDate);
+                    return (
+                      <div key={i} onClick={() => { if(!isPast) { setCurrentDate(day); setIsSidebarOpen(false); }}} 
+                        className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
+                          ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
+                          ${!isPast && !isSelected ? 'text-gray-700' : ''} 
+                          ${!isSameMonth(day, currentMonthView) && !isPast ? 'text-gray-400' : ''} 
+                          ${isSelected ? 'bg-black text-white font-bold shadow-md active:bg-gray-800' : ''}`}>
+                        {format(day, "d")}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="p-6 flex-1 overflow-y-auto hidden lg:block">
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
@@ -169,7 +205,7 @@ const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split
                 const isPast = isBefore(day, today);
                 const isSelected = isSameDay(day, currentDate);
                 return (
-                  <div key={i} onClick={() => { if(!isPast) { setCurrentDate(day); setIsSidebarOpen(false); }}} 
+                  <div key={i} onClick={() => { if(!isPast) setCurrentDate(day); }} 
                     className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
                       ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
                       ${!isPast && !isSelected ? 'text-gray-700' : ''} 
@@ -184,47 +220,9 @@ const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split
         </div>
       </aside>
 
-      {/* MODAL CALENDRIER (VISIBLE UNIQUEMENT SUR MOBILE) */}
-      {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-                <div className="flex space-x-1">
-                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronRight className="w-4 h-4" /></button>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 gap-1 text-center mb-2">{weekDaysHeader.map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, i) => {
-                  const isPast = isBefore(day, today);
-                  const isSelected = isSameDay(day, currentDate);
-                  return (
-                    <div key={i} onClick={() => { if(!isPast) { setCurrentDate(day); setIsSidebarOpen(false); }}} 
-                      className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
-                        ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
-                        ${!isPast && !isSelected ? 'text-gray-700' : ''} 
-                        ${!isSameMonth(day, currentMonthView) && !isPast ? 'text-gray-400' : ''} 
-                        ${isSelected ? 'bg-black text-white font-bold shadow-md active:bg-gray-800' : ''}`}>
-                      {format(day, "d")}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION (TEXTE ORIGINAL RESTAURÉ) */}
+        {/* SECTION HERO D'EXPLICATION */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
           <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
@@ -237,29 +235,36 @@ const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split
           </div>
         </div>
 
+        {/* HEADER DE NAVIGATION (3 BLOCS HARMONISÉS) */}
         <header className="px-4 lg:px-8 py-4 flex justify-between items-center z-10 flex-shrink-0 gap-2">
           
-          {/* 1. Bloc Gauche : Icône Calendrier (Mobile uniquement) */}
+          {/* 1. Bloc gauche (Icône) */}
           <div className="flex-1 flex justify-start lg:hidden">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-400 hover:text-black transition-colors bg-transparent border-none outline-none">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-1 text-black bg-transparent outline-none hover:opacity-70 transition-opacity">
               <CalendarIcon size={24} />
             </button>
           </div>
-          <div className="hidden lg:block flex-1"></div> {/* Espaceur invisible pour centrer sur ordinateur */}
+          <div className="hidden lg:block flex-1"></div>
 
-          {/* 2. Bloc Centre : Date et flèches */}
-          <div className="flex items-center space-x-1 lg:space-x-4 bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0">
-            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}><ChevronLeft size={18}/></button>
+          {/* 2. Bloc centre (Date) */}
+          <div className="flex items-center justify-between w-[60%] sm:w-[320px] bg-white p-1.5 lg:p-2 rounded-2xl border border-gray-200 shadow-sm shrink-0">
+            <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-2 rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
+              <ChevronLeft size={18}/>
+            </button>
             
-            <span className="text-sm sm:text-lg font-black lg:min-w-[180px] text-center capitalize truncate px-1 lg:px-2">
-              <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-              <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
-            </span>
+            <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-1" onClick={() => setIsSidebarOpen(true)}>
+              <span className="text-[13px] sm:text-lg font-black capitalize">
+                <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
+              </span>
+            </div>
 
-            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 bg-gray-50 rounded-xl transition"><ChevronRight size={18}/></button>
+            <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 bg-gray-50 rounded-xl transition">
+              <ChevronRight size={18}/>
+            </button>
           </div>
 
-          {/* 3. Bloc Droite : Bouton Demande */}
+          {/* 3. Bloc droite (Demande) */}
           <div className="flex-1 flex justify-end">
             <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="bg-black text-white px-4 lg:px-6 py-3 lg:py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center text-[10px] lg:text-xs">
               <Plus size={16} className="mr-1 lg:mr-2" /> 
@@ -318,18 +323,19 @@ const spaceImages = viewSpace && viewSpace.image_url ? viewSpace.image_url.split
         </main>
       </div>
 
-      {/* MODAL PHOTOS DE LA SALLE (CAROUSEL) */}
+      {/* MODAL PHOTOS DE LA SALLE (CAROUSEL AVEC SWIPE) */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
-<div 
+            <div 
               className="relative h-64 bg-gray-100 flex items-center justify-center border-b border-gray-200 group"
               onTouchStart={onTouchStart} 
               onTouchMove={onTouchMove} 
               onTouchEnd={onTouchEnd}
-            >              {spaceImages.length > 0 ? (
+            >
+              {spaceImages.length > 0 ? (
                 <>
-                  <img src={spaceImages[currentImageIndex]} alt={`${viewSpace.name} ${currentImageIndex+1}`} className="w-full h-full object-cover transition-opacity duration-300" />
+                  <img src={spaceImages[currentImageIndex]} alt={`${viewSpace.name} ${currentImageIndex+1}`} className="w-full h-full object-cover transition-opacity duration-300 select-none pointer-events-none" />
                   
                   {spaceImages.length > 1 && (
                     <>
