@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockSuccessMessage, setBlockSuccessMessage] = useState(""); // NOUVEAU: Message de succès personnalisé
   const [recurrenceOption, setRecurrenceOption] = useState("none");
   
   const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
@@ -61,7 +62,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); }
+      if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); setBlockSuccessMessage(""); }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -109,7 +110,6 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    // Si c'est un bloc généré par l'admin qui utilise sa propre adresse, on n'envoie pas d'email
     if(!booking.user_email || booking.user_email === user?.email) return; 
     
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
@@ -148,8 +148,8 @@ export default function AdminPage() {
       blocks.push({
         space_id, 
         user_name: block_name, 
-        user_email: user?.email || "admin@home.com", // Ajout de l'email pour satisfaire Supabase
-        user_phone: "-", // Ajout du téléphone pour satisfaire Supabase
+        user_email: user?.email || "admin@home.com",
+        user_phone: "-",
         reason: "Créneau bloqué automatiquement par l'administration.",
         start_time: st.toISOString(), 
         end_time: et.toISOString(), 
@@ -164,8 +164,14 @@ export default function AdminPage() {
     }
 
     const { error } = await supabase.from("bookings").insert(blocks);
-    if(error) alert("Erreur lors de la création des blocs.");
-    else { alert(`${blocks.length} créneau(x) bloqué(s) avec succès !`); setShowBlockModal(false); fetchBookings(); }
+    if(error) {
+      alert("Erreur lors de la création des blocs.");
+    } else { 
+      // Remplacement du vilain alert() par notre belle fenêtre !
+      setShowBlockModal(false); 
+      setBlockSuccessMessage(`${blocks.length} créneau(x) bloqué(s) avec succès !`);
+      fetchBookings(); 
+    }
   };
 
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
@@ -214,7 +220,6 @@ export default function AdminPage() {
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto flex flex-col">
-          {/* RECHERCHE MOBILE */}
           <div className="lg:hidden relative mb-6">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold" />
@@ -350,7 +355,7 @@ export default function AdminPage() {
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Récurrence</label>
                   <select name="recurrence" value={recurrenceOption} onChange={(e) => setRecurrenceOption(e.target.value)} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none">
-                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Toutes les semaines</option><option value="monthly">Tous les mois</option>
+                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Ttes les semaines</option><option value="monthly">Tous les mois</option>
                   </select>
                 </div>
                 {recurrenceOption !== "none" && (
@@ -359,6 +364,18 @@ export default function AdminPage() {
               </div>
               <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Bloquer ces créneaux</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SUCCESS BLOCAGE */}
+      {blockSuccessMessage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={() => setBlockSuccessMessage("")}>
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden p-10 text-center border">
+            <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-12 h-12 text-indigo-600" /></div>
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Opération réussie</h2>
+            <p className="text-gray-500 font-medium mb-8">{blockSuccessMessage}</p>
+            <button onClick={() => setBlockSuccessMessage("")} className="w-full bg-indigo-600 text-white font-black py-5 rounded-3xl hover:scale-105 transition-transform flex items-center justify-center">Parfait <ChevronRight className="ml-2 w-5 h-5" /></button>
           </div>
         </div>
       )}
