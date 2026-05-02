@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Menu, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function Home() {
@@ -20,7 +20,6 @@ export default function Home() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // États pour le modal de la salle et son carousel
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
@@ -131,7 +130,10 @@ export default function Home() {
           <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Home<br/><span className="text-gray-400 text-xs">Réservation</span></h1>
         </div>
-        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200"><Menu size={20}/></button>
+        {/* ICI : Remplacement du Menu par l'icône Calendrier */}
+        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 hover:bg-gray-100 transition-colors">
+          <CalendarIcon size={20} />
+        </button>
       </div>
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
@@ -143,8 +145,8 @@ export default function Home() {
         </div>
         
         <div className="p-4 border-b border-gray-100 flex lg:hidden justify-between items-center bg-gray-50">
-           <span className="font-black text-sm uppercase tracking-widest text-gray-400">Navigation</span>
-           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm"><X size={16}/></button>
+           <span className="font-black text-sm uppercase tracking-widest text-gray-400 flex items-center"><CalendarIcon size={14} className="mr-2"/> Calendrier</span>
+           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm transition-colors"><X size={16}/></button>
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto">
@@ -160,9 +162,17 @@ export default function Home() {
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day, i) => {
                 const isPast = isBefore(day, today);
+                const isSelected = isSameDay(day, currentDate);
                 return (
                   <div key={i} onClick={() => { if(!isPast) { setCurrentDate(day); if(window.innerWidth < 1024) setIsSidebarOpen(false); }}} 
-                    className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer'} ${!isPast && !isSameDay(day, currentDate) ? 'hover:bg-gray-200 text-gray-700' : ''} ${!isSameMonth(day, currentMonthView) && !isPast ? 'text-gray-400' : ''} ${isSameDay(day, currentDate) ? 'bg-black text-white font-bold shadow-md' : ''}`}>{format(day, "d")}</div>
+                    // Ajout du active:scale-90 pour l'effet de toucher
+                    className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
+                      ${isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200 active:scale-90 active:bg-gray-300'} 
+                      ${!isPast && !isSelected ? 'text-gray-700' : ''} 
+                      ${!isSameMonth(day, currentMonthView) && !isPast ? 'text-gray-400' : ''} 
+                      ${isSelected ? 'bg-black text-white font-bold shadow-md active:bg-gray-800' : ''}`}>
+                    {format(day, "d")}
+                  </div>
                 );
               })}
             </div>
@@ -174,7 +184,7 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION (Restaurée) */}
+        {/* SECTION HERO D'EXPLICATION */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
           <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
@@ -227,11 +237,14 @@ export default function Home() {
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             
-                            {/* Affichage normal des réservations (même passées) */}
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
-                              <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
-                                {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
-                              </div>
+                              isPast ? (
+                                <div key={b.id} className="absolute inset-x-1.5 z-10 rounded-xl pointer-events-none opacity-40" style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: '#9ca3af' }}></div>
+                              ) : (
+                                <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
+                                  {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
+                                </div>
+                              )
                             ))}
                           </td>
                         );
@@ -260,7 +273,7 @@ export default function Home() {
                       <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="absolute right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition shadow-md text-black opacity-0 group-hover:opacity-100"><ChevronRight size={20}/></button>
                       <div className="absolute bottom-4 flex space-x-1.5">
                         {spaceImages.map((_: any, idx: number) => (
-                          <div key={idx} className={`w-2 h-2 rounded-full ${idx === currentImageIndex ? 'bg-white' : 'bg-white/50'}`} />
+                          <div key={idx} className={`w-2 h-2 rounded-full transition-all ${idx === currentImageIndex ? 'bg-white scale-110' : 'bg-white/50'}`} />
                         ))}
                       </div>
                     </>
@@ -280,7 +293,7 @@ export default function Home() {
                 Capacité : {viewSpace.capacity ? `${viewSpace.capacity} places` : 'Non renseignée'}
               </div>
               {viewSpace.description && <p className="text-gray-600 leading-relaxed font-medium">{viewSpace.description}</p>}
-              <button onClick={() => { setViewSpace(null); setFormData(prev => ({...prev, space_id: viewSpace.id, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="w-full mt-8 bg-black text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:scale-[1.02] transition-transform shadow-xl">Demander cette salle</button>
+              <button onClick={() => { setViewSpace(null); setFormData(prev => ({...prev, space_id: viewSpace.id, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="w-full mt-8 bg-black text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:scale-[1.02] transition-transform shadow-xl text-sm">Demander cette salle</button>
             </div>
           </div>
         </div>
@@ -292,27 +305,27 @@ export default function Home() {
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
               <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Demande de réservation</h2>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
-              <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Espace *</label><select className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+              <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Espace *</label><select className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               <div className="flex space-x-4">
-                <div className="flex-1"><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label><input type="time" required value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" /></div>
-                <div className="flex-1"><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Fin *</label><input type="time" required value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" /></div>
+                <div className="flex-1"><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label><input type="time" required value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" /></div>
+                <div className="flex-1"><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Fin *</label><input type="time" required value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" /></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Prénom *</label><input type="text" required placeholder="Jean" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black" /></div>
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Nom *</label><input type="text" required placeholder="Dupont" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black" /></div>
+                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Prénom *</label><input type="text" required placeholder="Jean" value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black focus:bg-white bg-gray-50 font-medium transition-colors" /></div>
+                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Nom *</label><input type="text" required placeholder="Dupont" value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black focus:bg-white bg-gray-50 font-medium transition-colors" /></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">E-mail *</label><input type="email" required placeholder="jean@email.com" value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black" /></div>
-                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Téléphone *</label><input type="tel" required placeholder="+41 79 123 45 67" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black" /></div>
+                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">E-mail *</label><input type="email" required placeholder="jean@email.com" value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black focus:bg-white bg-gray-50 font-medium transition-colors" /></div>
+                <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Téléphone *</label><input type="tel" required placeholder="+41 79 123 45 67" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black focus:bg-white bg-gray-50 font-medium transition-colors" /></div>
               </div>
-              <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Raison de la demande *</label><textarea required placeholder="Réunion, rencontre..." value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full border rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black h-24 resize-none" /></div>
+              <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Raison de la demande *</label><textarea required placeholder="Réunion, rencontre..." value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black focus:bg-white bg-gray-50 font-medium transition-colors h-24 resize-none" /></div>
               
               <div className="flex items-start mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <input type="checkbox" required id="cgv" checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black" />
-                <label htmlFor="cgv" className="ml-3 text-xs text-gray-600 font-medium leading-relaxed">
+                <input type="checkbox" required id="cgv" checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black cursor-pointer" />
+                <label htmlFor="cgv" className="ml-3 text-xs text-gray-600 font-medium leading-relaxed cursor-pointer">
                   J'ai lu et j'accepte sans réserve les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link> de ces locaux.
                 </label>
               </div>

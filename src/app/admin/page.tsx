@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, CalendarRange } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, CalendarRange, Calendar as CalendarIcon } from "lucide-react";
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
@@ -27,7 +27,7 @@ export default function AdminPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const [showBlockModal, setShowBlockModal] = useState(false);
-  const [blockSuccessMessage, setBlockSuccessMessage] = useState(""); // NOUVEAU: Message de succès personnalisé
+  const [blockSuccessMessage, setBlockSuccessMessage] = useState(""); 
   const [recurrenceOption, setRecurrenceOption] = useState("none");
   
   const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
@@ -167,7 +167,6 @@ export default function AdminPage() {
     if(error) {
       alert("Erreur lors de la création des blocs.");
     } else { 
-      // Remplacement du vilain alert() par notre belle fenêtre !
       setShowBlockModal(false); 
       setBlockSuccessMessage(`${blocks.length} créneau(x) bloqué(s) avec succès !`);
       fetchBookings(); 
@@ -203,7 +202,9 @@ export default function AdminPage() {
           <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Admin<br/><span className="text-gray-400 text-xs">Panel</span></h1>
         </div>
-        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200"><Menu size={20}/></button>
+        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 hover:bg-gray-100 transition-colors">
+          <CalendarIcon size={20} />
+        </button>
       </div>
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex flex-col shadow-2xl lg:shadow-none transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
@@ -215,14 +216,15 @@ export default function AdminPage() {
         </div>
 
         <div className="p-4 border-b border-gray-100 flex lg:hidden justify-between items-center bg-gray-50">
-           <span className="font-black text-sm uppercase tracking-widest text-gray-400">Navigation Admin</span>
-           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm"><X size={16}/></button>
+           <span className="font-black text-sm uppercase tracking-widest text-gray-400 flex items-center"><CalendarIcon size={14} className="mr-2"/> Calendrier</span>
+           <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-full hover:bg-gray-200 bg-white shadow-sm transition-colors"><X size={16}/></button>
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto flex flex-col">
+          {/* RECHERCHE MOBILE */}
           <div className="lg:hidden relative mb-6">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold" />
+            <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 bg-white rounded-2xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm" />
           </div>
 
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6 shrink-0">
@@ -235,9 +237,15 @@ export default function AdminPage() {
             </div>
             <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
             <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((day, i) => (
-                <div key={i} onClick={() => {setCurrentDate(day); setIsSidebarOpen(false);}} className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all cursor-pointer ${isSameDay(day, currentDate) ? 'bg-black text-white font-bold' : 'hover:bg-gray-200'} ${!isSameMonth(day, currentMonthView) ? 'text-gray-400' : ''}`}>{format(day, "d")}</div>
-              ))}
+              {calendarDays.map((day, i) => {
+                const isSelected = isSameDay(day, currentDate);
+                return (
+                  <div key={i} onClick={() => {setCurrentDate(day); setIsSidebarOpen(false);}} 
+                    className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer active:scale-90 
+                    ${isSelected ? 'bg-black text-white font-bold active:bg-gray-800' : 'hover:bg-gray-200 active:bg-gray-300'} 
+                    ${!isSameMonth(day, currentMonthView) && !isSelected ? 'text-gray-400' : ''}`}>{format(day, "d")}</div>
+                );
+              })}
             </div>
           </div>
 
