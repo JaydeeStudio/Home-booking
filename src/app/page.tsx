@@ -9,6 +9,8 @@ import {
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon } from "lucide-react";
 import Link from "next/link";
+// IMPORT DU CAPTCHA CLOUDFLARE
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
@@ -24,6 +26,9 @@ export default function Home() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
+  // ÉTAT POUR LE CAPTCHA
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     space_id: "", first_name: "", last_name: "", user_email: "", 
@@ -74,7 +79,8 @@ export default function Home() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.cgv_accepted) return;
+    // VÉRIFICATION DU CAPTCHA AVANT L'ENVOI
+    if (!formData.cgv_accepted || !captchaToken) return;
 
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
     const end = new Date(currentDate); const [eh, em] = formData.end_time.split(':'); end.setHours(parseInt(eh), parseInt(em), 0);
@@ -84,7 +90,6 @@ export default function Home() {
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
 
-    // Insertion dans Supabase avec gestion d'erreur robuste
     const { data, error } = await supabase.from("bookings").insert([{
       space_id: formData.space_id, user_name: full_name, user_email: formData.user_email,
       user_phone: formData.phone, reason: formData.reason, 
@@ -99,7 +104,6 @@ export default function Home() {
 
     const bookingId = data && data.length > 0 ? data[0].id : "0";
 
-    // Envoi de l'email en arrière-plan sans bloquer l'UI
     fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -111,6 +115,7 @@ export default function Home() {
 
     setIsModalOpen(false);
     setShowSuccess(true);
+    setCaptchaToken(null); // On réinitialise le captcha après succès
     fetchBookings(); 
   };
 
@@ -247,14 +252,12 @@ export default function Home() {
         {/* HEADER DE NAVIGATION PUBLIC */}
         <header className="px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-10 flex-shrink-0 w-full gap-2 lg:gap-0">
           
-          {/* Mobile: Icône Calendrier à gauche */}
           <div className="lg:hidden flex-shrink-0 w-[80px]">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
               <CalendarIcon size={20} />
             </button>
           </div>
 
-          {/* Bureau/Mobile: Date Picker (Centré sur mobile, Gauche sur desktop) */}
           <div className="flex-1 flex justify-center lg:justify-start">
             <div className="flex items-center justify-between w-full max-w-[200px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm h-[48px]">
               <button onClick={() => {if(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition ${(!isSameDay(currentDate, today) && !isBefore(subDays(currentDate, 1), today)) ? 'hover:bg-gray-100 bg-gray-50' : 'opacity-30 cursor-not-allowed'}`}>
@@ -274,7 +277,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Bureau/Mobile: Bouton Demander à droite */}
           <div className="flex-shrink-0 w-[80px] lg:w-auto flex justify-end">
             <button onClick={() => { setFormData(prev => ({...prev, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="h-[48px] bg-black text-white px-3 sm:px-6 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl shadow-black/20 flex items-center justify-center text-[10px] lg:text-xs">
               <Plus size={16} className="lg:mr-2" /> 
@@ -389,7 +391,6 @@ export default function Home() {
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
               
-              {/* RAPPEL DE LA DATE */}
               <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 mb-2 flex items-center justify-center space-x-2">
                 <CalendarIcon size={16} className="text-gray-400" />
                 <span className="text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</span>
@@ -422,7 +423,17 @@ export default function Home() {
                 </label>
               </div>
 
-              <button type="submit" disabled={!formData.cgv_accepted} className={`w-full text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 transition-transform shadow-xl text-sm ${formData.cgv_accepted ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
+              {/* ZONE DU WIDGET TURNSTILE */}
+              <div className="mt-4 flex justify-center">
+                <Turnstile
+                  siteKey="0x4AAAAAADIiijhYB_5mdeNZ"
+                  onSuccess={(token) => setCaptchaToken(token)}
+                  onError={() => setCaptchaToken(null)}
+                  onExpire={() => setCaptchaToken(null)}
+                />
+              </div>
+
+              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 transition-transform shadow-xl text-sm ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
             </form>
           </div>
         </div>
