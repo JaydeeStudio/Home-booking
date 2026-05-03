@@ -84,27 +84,34 @@ export default function Home() {
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
 
+    // Insertion dans Supabase avec gestion d'erreur robuste
     const { data, error } = await supabase.from("bookings").insert([{
       space_id: formData.space_id, user_name: full_name, user_email: formData.user_email,
       user_phone: formData.phone, reason: formData.reason, 
       start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending'
     }]).select();
 
-    if (error || !data) {
-      alert("⚠️ Erreur lors de la réservation.");
-    } else {
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'NEW_REQUEST', booking_id: data[0].id, user_name: full_name, user_email: formData.user_email,
-          space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
-        })
-      });
-      setIsModalOpen(false);
-      setShowSuccess(true);
-      fetchBookings(); 
+    if (error) {
+      console.error(error);
+      alert("⚠️ Erreur lors de la réservation: " + error.message);
+      return;
     }
+
+    const bookingId = data && data.length > 0 ? data[0].id : "0";
+
+    // Envoi de l'email en arrière-plan sans bloquer l'UI
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'NEW_REQUEST', booking_id: bookingId, user_name: full_name, user_email: formData.user_email,
+        space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
+      })
+    }).catch(err => console.error("Erreur d'envoi d'e-mail:", err));
+
+    setIsModalOpen(false);
+    setShowSuccess(true);
+    fetchBookings(); 
   };
 
   const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
@@ -381,7 +388,19 @@ export default function Home() {
               <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
-              <div><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Espace *</label><select className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+              
+              {/* RAPPEL DE LA DATE */}
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 mb-2 flex items-center justify-center space-x-2">
+                <CalendarIcon size={16} className="text-gray-400" />
+                <span className="text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</span>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Espace *</label>
+                <select className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
+                  {spaces.map(s => <option key={s.id} value={s.id}>{s.name} {s.capacity ? `(${s.capacity} pl.)` : ''}</option>)}
+                </select>
+              </div>
               <div className="flex space-x-4">
                 <div className="flex-1"><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label><input type="time" required value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" /></div>
                 <div className="flex-1"><label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Fin *</label><input type="time" required value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} className="w-full border border-gray-200 rounded-xl p-3.5 outline-none focus:ring-2 focus:ring-black bg-gray-50 font-bold" /></div>
