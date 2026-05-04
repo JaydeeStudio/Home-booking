@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon, Building2 } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile';
 
@@ -265,12 +265,21 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION OPTIMISÉE */}
-        <div className="px-4 lg:px-8 pt-10 pb-6 shrink-0 flex flex-col items-center justify-center text-center">
+        {/* SECTION HERO D'EXPLICATION OPTIMISÉE (INTEMPOREL) */}
+        <div className="px-4 lg:px-8 pt-10 pb-4 shrink-0 flex flex-col items-center justify-center text-center relative">
+          
+          {/* Le fameux micro-badge élégant */}
+          <div className="inline-flex items-center space-x-2 bg-white border border-gray-200 px-3 py-1.5 rounded-full mb-6 shadow-sm">
+             <Building2 size={14} className="text-gray-900" />
+             <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+               Espaces Home
+             </span>
+          </div>
+
           <h2 className="text-3xl lg:text-5xl font-black text-gray-900 mb-4 tracking-tight max-w-4xl">
             {siteContent.intro_title}
           </h2>
-          <p className="text-gray-500 font-medium text-base lg:text-lg max-w-2xl leading-relaxed whitespace-pre-wrap">
+          <p className="text-gray-500 font-medium text-sm lg:text-base max-w-2xl leading-relaxed whitespace-pre-wrap">
             {siteContent.intro_paragraph}
           </p>
         </div>
