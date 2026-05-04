@@ -11,6 +11,17 @@ import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile';
 
+// L'ORDRE FIGÉ DES SALLES
+const ROOM_ORDER = [
+  "Conférence 1",
+  "Conférence 2",
+  "Espace canapés",
+  "Social Stairs",
+  "Bureaux",
+  "Grande salle",
+  "Enfance"
+];
+
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -18,7 +29,6 @@ export default function Home() {
   const [spaces, setSpaces] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   
-  // NOUVEAU : État pour stocker les textes de l'éditeur
   const [siteContent, setSiteContent] = useState({ 
     intro_title: "Chargement...", 
     intro_paragraph: "Veuillez patienter pendant le chargement des informations." 
@@ -53,14 +63,21 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
-  // NOUVEAU : On récupère les espaces ET les textes de l'éditeur
   useEffect(() => {
     const fetchData = async () => {
       // Les espaces
       const { data: spacesData } = await supabase.from("spaces").select("*");
       if (spacesData) {
-        setSpaces(spacesData);
-        if (spacesData.length > 0) setFormData(prev => ({ ...prev, space_id: spacesData[0].id }));
+        // TRI SELON LA LISTE FIGÉE
+        const sorted = spacesData.sort((a, b) => {
+          let indexA = ROOM_ORDER.indexOf(a.name);
+          let indexB = ROOM_ORDER.indexOf(b.name);
+          if (indexA === -1) indexA = 99; 
+          if (indexB === -1) indexB = 99;
+          return indexA - indexB;
+        });
+        setSpaces(sorted);
+        if (sorted.length > 0) setFormData(prev => ({ ...prev, space_id: sorted[0].id }));
       }
       
       // Les textes de l'éditeur
@@ -248,7 +265,7 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION - MAINTENANT DYNAMIQUE */}
+        {/* SECTION HERO D'EXPLICATION */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
           <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
@@ -345,7 +362,7 @@ export default function Home() {
         </main>
       </div>
 
-      {/* MODAL PHOTOS DE LA SALLE - MAINTENANT DYNAMIQUE POUR LA DESCRIPTION */}
+      {/* MODAL PHOTOS DE LA SALLE */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
