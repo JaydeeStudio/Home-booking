@@ -160,39 +160,59 @@ export default function Home() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
-      {/* HEADER MOBILE (TRÈS DISCRET) */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
-<div onClick={returnHome} className="flex items-center cursor-pointer">
-  <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
-</div>
+      {/* HEADER MOBILE (CENTRÉ ET ÉPURÉ) */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
+        <div onClick={returnHome} className="cursor-pointer shrink-0">
+          <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
+        </div>
+        <div className="w-[1px] h-4 bg-gray-300 shrink-0"></div>
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <DoorOpen size={14} className="text-gray-900" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
+            Réservation
+          </span>
+        </div>
       </div>
 
-      {/* SIDEBAR DESKTOP (CONTENANT L'INTRODUCTION) */}
+      {/* TEXTE D'INTRO MOBILE (LE BEIGE DEMANDÉ) */}
+      <div className="lg:hidden bg-[#F4E5D2] px-5 py-4 shrink-0 text-center border-b border-[#EADDCC] shadow-sm">
+        <h2 className="text-sm font-black text-black mb-1.5 leading-snug">
+          {siteContent.intro_title}
+        </h2>
+        <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
+          {siteContent.intro_paragraph}
+        </p>
+      </div>
+
+      {/* SIDEBAR DESKTOP */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8 border-b border-gray-100 flex flex-col gap-6">
-          <div onClick={returnHome} className="flex items-center cursor-pointer group">
-  <div className="group-hover:scale-105 transition-transform">
-    <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
-  </div>
-</div>
-          
-          <div>
-            <div className="inline-flex items-center space-x-2 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg mb-3">
-               <DoorOpen size={14} className="text-gray-900" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
-                 Réservation de salle
-               </span>
+          <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer group">
+            <div className="group-hover:scale-105 transition-transform">
+              <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
             </div>
-            <h2 className="text-sm font-black text-gray-900 mb-2 leading-snug">
-              {siteContent.intro_title}
-            </h2>
-            <p className="text-[11px] text-gray-500 font-medium leading-relaxed whitespace-pre-wrap">
-              {siteContent.intro_paragraph}
-            </p>
+          </div>
+          
+          <div className="inline-flex items-center space-x-2 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg w-max">
+             <DoorOpen size={14} className="text-gray-900" />
+             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
+               Réservation de salle
+             </span>
           </div>
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto">
+          
+          {/* TEXTE D'INTRO DESKTOP (BEIGE AUSSI) */}
+          <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
+            <h2 className="text-sm font-black text-black mb-2 leading-snug">
+              {siteContent.intro_title}
+            </h2>
+            <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
+              {siteContent.intro_paragraph}
+            </p>
+          </div>
+
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <span className="font-bold text-xs capitalize text-gray-900">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
@@ -220,18 +240,13 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* MODAL CALENDRIER MOBILE + INTRO */}
+      {/* MODAL CALENDRIER MOBILE (ÉPURÉ SANS TEXTE) */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col">
             <div className="flex justify-between items-center mb-6 shrink-0">
-              <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Options</h2>
+              <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
               <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-
-            <div className="mb-6 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-              <h3 className="text-sm font-black text-indigo-900 mb-1">{siteContent.intro_title}</h3>
-              <p className="text-[11px] text-indigo-700/80 font-medium leading-relaxed">{siteContent.intro_paragraph}</p>
             </div>
             
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
@@ -258,8 +273,10 @@ export default function Home() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 bg-gray-50 relative">
-        {/* HEADER DE GRILLE (DISCRET) */}
+      {/* ZONE PRINCIPALE - MIN-H-0 AJOUTÉ POUR CORRIGER LE SCROLL */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 relative">
+        
+        {/* HEADER DE GRILLE */}
         <header className="px-4 lg:px-8 py-4 flex items-center justify-between z-10 shrink-0 w-full gap-2">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2.5 bg-white rounded-xl shadow-sm border border-gray-200">
             <CalendarIcon size={20} />
@@ -288,8 +305,8 @@ export default function Home() {
         {/* GRILLE DES SALLES */}
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-1 overflow-auto relative">
-              <table className="w-full border-separate border-spacing-0 min-w-[800px]">
+            <div className="flex-1 overflow-auto relative overscroll-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <table className="w-full border-separate border-spacing-0 min-w-[800px] pb-8">
                 <thead>
                   <tr className="sticky top-0 z-30">
                     <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20"><Clock size={16} className="mx-auto text-gray-400" /></th>
