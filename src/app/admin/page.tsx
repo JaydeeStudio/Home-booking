@@ -169,7 +169,9 @@ export default function AdminPage() {
 
     let currentDay = new Date(start_date_str);
     const endRecDate = recurrence === "none" ? currentDay : new Date(end_recurrence_str);
-    const blocks = [];
+    
+    // LA CORRECTION TYPESCRIPT EST ICI : any[]
+    const blocks: any[] = []; 
     let limit = 0; 
 
     while (currentDay <= endRecDate && limit < 365) {
@@ -414,7 +416,7 @@ export default function AdminPage() {
           </div>
         </header>
 
-        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE (SANS FOND BLANC POUR S'INTÉGRER) */}
+        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
         <div className="lg:hidden px-4 pb-4 flex flex-col gap-4 flex-shrink-0 z-30">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
