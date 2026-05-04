@@ -160,7 +160,7 @@ export default function Home() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
-      {/* HEADER MOBILE (CENTRÉ ET ÉPURÉ) */}
+      {/* HEADER MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
         <div onClick={returnHome} className="cursor-pointer shrink-0">
           <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
@@ -174,12 +174,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* TEXTE D'INTRO MOBILE (LE BEIGE DEMANDÉ) */}
-      <div className="lg:hidden bg-[#F4E5D2] px-5 py-4 shrink-0 text-center border-b border-[#EADDCC] shadow-sm">
+      {/* TEXTE D'INTRO MOBILE (BEIGE CLAIR SANS OMBRE) */}
+      <div className="lg:hidden bg-[#FAF6F1] px-6 py-5 shrink-0 text-center border-b border-gray-100">
         <h2 className="text-sm font-black text-black mb-1.5 leading-snug">
           {siteContent.intro_title}
         </h2>
-        <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
+        <p className="text-[11px] text-gray-600 font-medium leading-relaxed whitespace-pre-wrap">
           {siteContent.intro_paragraph}
         </p>
       </div>
@@ -203,12 +203,12 @@ export default function Home() {
 
         <div className="p-6 flex-1 overflow-y-auto">
           
-          {/* TEXTE D'INTRO DESKTOP (BEIGE AUSSI) */}
-          <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
+          {/* TEXTE D'INTRO DESKTOP (BEIGE CLAIR SANS OMBRE) */}
+          <div className="bg-[#FAF6F1] rounded-[24px] p-6 mb-8">
             <h2 className="text-sm font-black text-black mb-2 leading-snug">
               {siteContent.intro_title}
             </h2>
-            <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
+            <p className="text-[11px] text-gray-600 font-medium leading-relaxed whitespace-pre-wrap">
               {siteContent.intro_paragraph}
             </p>
           </div>
@@ -240,7 +240,7 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* MODAL CALENDRIER MOBILE (ÉPURÉ SANS TEXTE) */}
+      {/* MODAL CALENDRIER MOBILE */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col">
@@ -273,7 +273,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ZONE PRINCIPALE - MIN-H-0 AJOUTÉ POUR CORRIGER LE SCROLL */}
+      {/* ZONE PRINCIPALE */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 relative">
         
         {/* HEADER DE GRILLE */}
@@ -306,7 +306,7 @@ export default function Home() {
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
             <div className="flex-1 overflow-auto relative overscroll-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <table className="w-full border-separate border-spacing-0 min-w-[800px] pb-8">
+              <table className="w-full border-separate border-spacing-0 min-w-[800px] pb-12">
                 <thead>
                   <tr className="sticky top-0 z-30">
                     <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20"><Clock size={16} className="mx-auto text-gray-400" /></th>
@@ -352,19 +352,32 @@ export default function Home() {
         </main>
       </div>
 
-      {/* MODAL PHOTOS SALLE */}
+      {/* MODAL PHOTOS SALLE AVEC CARROUSEL OPTIMISÉ */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
             <div className="relative h-64 bg-gray-100 flex items-center justify-center group" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
               {spaceImages.length > 0 ? (
                 <>
-                  <img src={spaceImages[currentImageIndex]} className="w-full h-full object-cover" />
+                  <img src={spaceImages[currentImageIndex]} className="w-full h-full object-cover select-none pointer-events-none" />
+                  
                   {spaceImages.length > 1 && (
-                    <div className="absolute inset-x-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)} className="p-2 bg-white/80 rounded-full shadow-md"><ChevronLeft size={20}/></button>
-                      <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="p-2 bg-white/80 rounded-full shadow-md"><ChevronRight size={20}/></button>
-                    </div>
+                    <>
+                      <div className="absolute inset-x-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)} className="p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition"><ChevronLeft size={20}/></button>
+                        <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition"><ChevronRight size={20}/></button>
+                      </div>
+                      
+                      {/* LES PETITS RONDS BLANCS (INDICATEUR DE CARROUSEL) */}
+                      <div className="absolute bottom-4 flex space-x-1.5">
+                        {spaceImages.map((_: any, idx: number) => (
+                          <div 
+                            key={idx} 
+                            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-3' : 'bg-white/50'}`} 
+                          />
+                        ))}
+                      </div>
+                    </>
                   )}
                 </>
               ) : <Info className="w-10 h-10 text-gray-300" />}
@@ -374,7 +387,7 @@ export default function Home() {
               <h2 className="text-2xl font-black uppercase mb-2" style={{ color: viewSpace.color }}>{viewSpace.name}</h2>
               <div className="inline-block px-3 py-1 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 mb-6 uppercase">Capacité : {viewSpace.capacity} places</div>
               <p className="text-gray-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">{viewSpace.description}</p>
-              <button onClick={() => { setViewSpace(null); setIsModalOpen(true); setFormData({...formData, space_id: viewSpace.id}); }} className="w-full mt-8 bg-black text-white font-black uppercase py-4 rounded-2xl shadow-xl text-sm">Demander cette salle</button>
+              <button onClick={() => { setViewSpace(null); setIsModalOpen(true); setFormData({...formData, space_id: viewSpace.id}); }} className="w-full mt-8 bg-black text-white font-black uppercase py-4 rounded-2xl shadow-xl text-sm hover:scale-[1.02] transition-transform">Demander cette salle</button>
             </div>
           </div>
         </div>
@@ -417,13 +430,14 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODAL SUCCÈS */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={() => setShowSuccess(false)}>
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 text-center border">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-10 h-10 text-green-600" /></div>
             <h2 className="text-3xl font-black text-gray-900 mb-2">Reçue !</h2>
-            <p className="text-gray-500 font-medium mb-8">Votre demande est en cours de validation par notre administration.</p>
-            <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center">C'est parfait <ChevronRight className="ml-2 w-5 h-5" /></button>
+            <p className="text-gray-500 font-medium mb-8 text-sm leading-relaxed">Votre demande est en cours de validation par notre administration.</p>
+            <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
           </div>
         </div>
       )}
