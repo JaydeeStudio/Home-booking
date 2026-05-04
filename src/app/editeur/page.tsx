@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { ShieldCheck, LogOut, LayoutTemplate, FileText, Save, CheckCircle2, UploadCloud, X } from "lucide-react";
+import { ShieldCheck, LogOut, LayoutTemplate, FileText, Save, CheckCircle2, UploadCloud, X, DoorOpen } from "lucide-react";
 
 // LISTE BLANCHE DES ADMINISTRATEURS
 const ADMIN_WHITELIST = [
@@ -19,11 +19,11 @@ const ADMIN_WHITELIST = [
 const ROOM_ORDER = [
   "Conférence 1",
   "Conférence 2",
-  "Espace canapés",
   "Social Stairs",
   "Bureaux",
   "Grande salle",
-  "Enfance"
+  "Enfance",
+  "Espace canapés"
 ];
 
 export default function EditeurPage() {
@@ -169,6 +169,10 @@ export default function EditeurPage() {
     updateSpaceState(spaceId, 'image_url', newUrlsArray.join(', '));
   };
 
+  const returnHome = () => {
+    window.location.href = "/";
+  };
+
   if (loading) return null;
   
   if (!user) return (
@@ -194,10 +198,25 @@ export default function EditeurPage() {
       
       {/* SIDEBAR DESKTOP */}
       <aside className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 shrink-0 hidden md:flex">
-        <div className="p-8 border-b border-gray-100">
-  <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-6 object-contain mb-2" />
-  <span className="block text-indigo-600 text-[10px] font-black uppercase tracking-[0.2em]">Panneau d'édition</span>
-</div>
+        
+        {/* LOGO ET SOUS-TITRE CENTRÉS (DESKTOP) */}
+        <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
+          <div onClick={returnHome} className="cursor-pointer group">
+            <div className="group-hover:scale-105 transition-transform">
+              <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
+            </div>
+          </div>
+          
+          <div className="inline-flex flex-col items-center justify-center bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg w-max">
+             <div className="flex items-center space-x-2">
+               <DoorOpen size={14} className="text-gray-900" />
+               <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
+                 Réservation
+               </span>
+             </div>
+             <span className="text-[9px] font-black uppercase tracking-widest text-orange-600 mt-1">Panneau d'édition</span>
+          </div>
+        </div>
         
         <div className="p-4 flex-1 flex flex-col gap-2 overflow-y-auto">
           <button 
@@ -227,26 +246,39 @@ export default function EditeurPage() {
       {/* ZONE DE CONTENU PRINCIPAL */}
       <main className="flex-1 overflow-y-auto relative">
         
-        {/* En-tête mobile */}
-        <div className="md:hidden bg-white p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20 shadow-sm">
-          <div className="flex flex-col">
-  <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-4 object-contain" />
-  <span className="text-indigo-600 text-[8px] font-black uppercase tracking-widest mt-0.5">Éditeur</span>
-</div>
-           <div className="flex gap-2">
-             <button 
-               onClick={() => setActiveTab("textes")} 
-               className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${activeTab === "textes" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"}`}
-             >
-               Textes
-             </button>
-             <button 
-               onClick={() => setActiveTab("espaces")} 
-               className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${activeTab === "espaces" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"}`}
-             >
-               Salles
-             </button>
-           </div>
+        {/* En-tête mobile (AVEC LOGO ET SOUS-TITRE ORANGE) */}
+        <div className="md:hidden bg-white px-4 py-3 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20 shadow-sm shrink-0">
+          
+          <div className="flex items-center gap-3">
+            <div onClick={returnHome} className="cursor-pointer shrink-0">
+              <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
+            </div>
+            <div className="w-[1px] h-6 bg-gray-300 shrink-0"></div>
+            <div className="flex flex-col justify-center shrink-0">
+              <div className="flex items-center space-x-1.5">
+                <DoorOpen size={14} className="text-gray-900" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
+                  Réservation
+                </span>
+              </div>
+              <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 mt-0.5">Panneau d'édition</span>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setActiveTab("textes")} 
+              className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === "textes" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"}`}
+            >
+              Textes
+            </button>
+            <button 
+              onClick={() => setActiveTab("espaces")} 
+              className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === "espaces" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"}`}
+            >
+              Salles
+            </button>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto p-4 md:p-10">

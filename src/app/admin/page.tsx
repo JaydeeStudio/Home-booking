@@ -40,7 +40,6 @@ export default function AdminPage() {
   const [blockSuccessMessage, setBlockSuccessMessage] = useState(""); 
   const [recurrenceOption, setRecurrenceOption] = useState("none");
   
-  // États pour la détection de conflits
   const [conflictModal, setConflictModal] = useState(false);
   const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
   const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
@@ -169,8 +168,6 @@ export default function AdminPage() {
 
     let currentDay = new Date(start_date_str);
     const endRecDate = recurrence === "none" ? currentDay : new Date(end_recurrence_str);
-    
-    // LA CORRECTION TYPESCRIPT EST ICI : any[]
     const blocks: any[] = []; 
     let limit = 0; 
 
@@ -196,7 +193,6 @@ export default function AdminPage() {
       limit++;
     }
 
-    // Détection de conflits avant insertion
     if (blocks.length > 0) {
       const globalStart = blocks[0].start_time;
       const globalEnd = blocks[blocks.length - 1].end_time;
@@ -219,7 +215,7 @@ export default function AdminPage() {
           setPendingBlocks(blocks);
           setShowBlockModal(false);
           setConflictModal(true);
-          return; // On arrête là, la fenêtre de conflit prend le relais
+          return; 
         }
       }
     }
@@ -262,21 +258,24 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
-      {/* HEADER HAUT POUR MOBILE (Identique Public) */}
+      {/* HEADER HAUT POUR MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
         <div onClick={returnHome} className="cursor-pointer shrink-0">
           <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
         </div>
-        <div className="w-[1px] h-4 bg-gray-300 shrink-0"></div>
-        <div className="flex items-center space-x-1.5 shrink-0">
-          <DoorOpen size={14} className="text-gray-900" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
-            Réservation
-          </span>
+        <div className="w-[1px] h-6 bg-gray-300 shrink-0"></div>
+        <div className="flex flex-col justify-center shrink-0">
+          <div className="flex items-center space-x-1.5">
+            <DoorOpen size={14} className="text-gray-900" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
+              Réservation
+            </span>
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600 mt-0.5">Panneau admin</span>
         </div>
       </div>
 
-      {/* SIDEBAR ADMIN DESKTOP (Identique Public) */}
+      {/* SIDEBAR ADMIN DESKTOP */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
           <div onClick={returnHome} className="cursor-pointer group">
@@ -285,11 +284,14 @@ export default function AdminPage() {
             </div>
           </div>
           
-          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max">
-             <DoorOpen size={14} className="text-gray-900" />
-             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
-               Réservation
-             </span>
+          <div className="inline-flex flex-col items-center justify-center bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg w-max">
+             <div className="flex items-center space-x-2">
+               <DoorOpen size={14} className="text-gray-900" />
+               <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
+                 Réservation
+               </span>
+             </div>
+             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mt-1">Panneau admin</span>
           </div>
         </div>
 
