@@ -11,6 +11,17 @@ import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Sear
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
+// ORDRE FIGÉ DES SALLES (Identique à la page publique)
+const ROOM_ORDER = [
+  "Conférence 1",
+  "Conférence 2",
+  "Social Stairs",
+  "Bureaux",
+  "Grande salle",
+  "Enfance",
+  "Espace canapés"
+];
+
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -50,7 +61,21 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (user) {
-      supabase.from("spaces").select("*").then(({ data }) => { if (data) setSpaces(data); });
+      const fetchSpaces = async () => {
+        const { data } = await supabase.from("spaces").select("*");
+        if (data) {
+          // Tri des salles selon l'ordre défini
+          const sorted = data.sort((a, b) => {
+            let indexA = ROOM_ORDER.indexOf(a.name);
+            let indexB = ROOM_ORDER.indexOf(b.name);
+            if (indexA === -1) indexA = 99; 
+            if (indexB === -1) indexB = 99;
+            return indexA - indexB;
+          });
+          setSpaces(sorted);
+        }
+      };
+      fetchSpaces();
       fetchBookings();
     }
   }, [user]);
@@ -342,7 +367,7 @@ export default function AdminPage() {
           </div>
         </header>
 
-        {/* NOUVEAU: RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
+        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
         <div className="lg:hidden p-4 bg-white border-b border-gray-100 flex flex-col gap-4 flex-shrink-0 shadow-sm z-30">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
