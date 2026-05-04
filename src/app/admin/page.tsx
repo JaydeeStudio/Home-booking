@@ -7,11 +7,10 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Menu, Save, Lock, CalendarRange, Calendar as CalendarIcon } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Save, Lock, CalendarRange, Calendar as CalendarIcon, DoorOpen, AlertTriangle } from "lucide-react";
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
-// ORDRE FIGÉ DES SALLES (Identique à la page publique)
 const ROOM_ORDER = [
   "Conférence 1",
   "Conférence 2",
@@ -41,6 +40,11 @@ export default function AdminPage() {
   const [blockSuccessMessage, setBlockSuccessMessage] = useState(""); 
   const [recurrenceOption, setRecurrenceOption] = useState("none");
   
+  // États pour la détection de conflits
+  const [conflictModal, setConflictModal] = useState(false);
+  const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
+  const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
+  
   const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
 
   const today = startOfDay(new Date());
@@ -64,7 +68,6 @@ export default function AdminPage() {
       const fetchSpaces = async () => {
         const { data } = await supabase.from("spaces").select("*");
         if (data) {
-          // Tri des salles selon l'ordre défini
           const sorted = data.sort((a, b) => {
             let indexA = ROOM_ORDER.indexOf(a.name);
             let indexB = ROOM_ORDER.indexOf(b.name);
@@ -87,7 +90,10 @@ export default function AdminPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); setBlockSuccessMessage(""); setIsSidebarOpen(false); }
+      if (e.key === 'Escape') { 
+        setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); 
+        setBlockSuccessMessage(""); setIsSidebarOpen(false); setConflictModal(false);
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -188,12 +194,45 @@ export default function AdminPage() {
       limit++;
     }
 
-    const { error } = await supabase.from("bookings").insert(blocks);
+    // Détection de conflits avant insertion
+    if (blocks.length > 0) {
+      const globalStart = blocks[0].start_time;
+      const globalEnd = blocks[blocks.length - 1].end_time;
+
+      const { data: existing } = await supabase.from("bookings").select("*")
+        .eq("space_id", space_id)
+        .gte("end_time", globalStart)
+        .lte("start_time", globalEnd);
+
+      if (existing && existing.length > 0) {
+        const overlaps = existing.filter(b => {
+          return blocks.some(block => {
+            return new Date(block.start_time).getTime() < new Date(b.end_time).getTime() && 
+                   new Date(block.end_time).getTime() > new Date(b.start_time).getTime();
+          });
+        });
+
+        if (overlaps.length > 0) {
+          setConflictingBookings(overlaps);
+          setPendingBlocks(blocks);
+          setShowBlockModal(false);
+          setConflictModal(true);
+          return; // On arrête là, la fenêtre de conflit prend le relais
+        }
+      }
+    }
+
+    executeBlockInsertion(blocks);
+  };
+
+  const executeBlockInsertion = async (blocksToInsert: any[]) => {
+    const { error } = await supabase.from("bookings").insert(blocksToInsert);
     if(error) {
       alert("Erreur lors de la création des blocs.");
     } else { 
+      setConflictModal(false);
       setShowBlockModal(false); 
-      setBlockSuccessMessage(`${blocks.length} créneau(x) bloqué(s) avec succès !`);
+      setBlockSuccessMessage(`${blocksToInsert.length} créneau(x) bloqué(s) avec succès !`);
       fetchBookings(); 
     }
   };
@@ -221,20 +260,34 @@ export default function AdminPage() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
-      {/* HEADER HAUT POUR MOBILE */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
-        <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer">
-          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-          <h1 className="text-lg font-black uppercase tracking-tight text-gray-900 leading-none">Admin<br/><span className="text-gray-400 text-xs">Panel</span></h1>
+      {/* HEADER HAUT POUR MOBILE (Identique Public) */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
+        <div onClick={returnHome} className="cursor-pointer shrink-0">
+          <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
+        </div>
+        <div className="w-[1px] h-4 bg-gray-300 shrink-0"></div>
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <DoorOpen size={14} className="text-gray-900" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
+            Réservation
+          </span>
         </div>
       </div>
 
-      {/* SIDEBAR ADMIN DESKTOP */}
+      {/* SIDEBAR ADMIN DESKTOP (Identique Public) */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <div onClick={returnHome} className="flex items-center space-x-4 cursor-pointer group">
-            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"><img src="/logo.png" alt="Logo" className="w-full h-full object-contain" /></div>
-            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight"><span className="block">Admin</span><span className="block text-gray-400 text-sm">Panel</span></h1>
+        <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
+          <div onClick={returnHome} className="cursor-pointer group">
+            <div className="group-hover:scale-105 transition-transform">
+              <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
+            </div>
+          </div>
+          
+          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max">
+             <DoorOpen size={14} className="text-gray-900" />
+             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
+               Réservation
+             </span>
           </div>
         </div>
 
@@ -313,17 +366,15 @@ export default function AdminPage() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* HEADER DE NAVIGATION ADMIN (3 BLOCS HARMONISÉS) */}
-        <header className="bg-white border-b border-gray-100 px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-40 flex-shrink-0 w-full gap-2 lg:gap-4">
+        {/* HEADER DE NAVIGATION ADMIN SANS FOND BLANC */}
+        <header className="px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-40 flex-shrink-0 w-full gap-2 lg:gap-4">
           
-          {/* 1. Bloc gauche : Icône Calendrier (Mobile) */}
           <div className="lg:hidden flex-shrink-0 w-[80px]">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
               <CalendarIcon size={20} />
             </button>
           </div>
 
-          {/* Bureau/Mobile : Date Picker (Centré sur mobile, Gauche sur desktop) */}
           <div className="flex-1 flex justify-center lg:justify-start">
             <div className="flex items-center justify-between w-full max-w-[200px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm h-[48px]">
               <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
@@ -337,16 +388,13 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* 3. Bureau/Mobile : Actions à droite */}
           <div className="flex-shrink-0 w-[80px] lg:w-auto flex items-center justify-end gap-2 lg:gap-4">
             
-            {/* Recherche Desktop */}
             <div className="relative hidden lg:block">
               <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-0 bg-white rounded-2xl text-sm border border-gray-200 w-64 focus:ring-2 focus:ring-black outline-none font-bold transition-all shadow-sm h-[48px]" />
             </div>
             
-            {/* Boutons Desktop (Bloquer + Logout) */}
             <button onClick={() => setShowBlockModal(true)} className="hidden lg:flex h-[48px] px-5 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold items-center justify-center transition-colors border border-indigo-100 shadow-sm text-xs leading-snug text-left">
               <Lock size={18} className="mr-3"/>
               <span>Bloquer des<br/>créneaux</span>
@@ -356,29 +404,28 @@ export default function AdminPage() {
               <LogOut size={18} className="mr-3"/> Déconnexion
             </button>
 
-            {/* Boutons Mobile (Bloquer + Logout) */}
-            <button onClick={() => setShowBlockModal(true)} className="lg:hidden h-[48px] w-[48px] bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 flex items-center justify-center">
+            {/* Boutons Mobile */}
+            <button onClick={() => setShowBlockModal(true)} className="lg:hidden h-[48px] w-[48px] bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 flex items-center justify-center shadow-sm">
               <Lock size={20}/>
             </button>
-            <button onClick={() => supabase.auth.signOut()} className="lg:hidden h-[48px] w-[48px] bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center">
+            <button onClick={() => supabase.auth.signOut()} className="lg:hidden h-[48px] w-[48px] bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center shadow-sm">
               <LogOut size={20}/>
             </button>
-
           </div>
         </header>
 
-        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
-        <div className="lg:hidden p-4 bg-white border-b border-gray-100 flex flex-col gap-4 flex-shrink-0 shadow-sm z-30">
+        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE (SANS FOND BLANC POUR S'INTÉGRER) */}
+        <div className="lg:hidden px-4 pb-4 flex flex-col gap-4 flex-shrink-0 z-30">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-3 bg-gray-50 rounded-xl text-sm border border-gray-200 w-full focus:bg-white focus:ring-2 focus:ring-black outline-none font-bold" />
+            <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm" />
           </div>
           {pendingBookings.length > 0 && (
             <div>
               <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">En attente ({pendingBookings.length})</h2>
               <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {pendingBookings.map(b => (
-                  <div key={b.id} onClick={() => openBookingModal(b)} className="shrink-0 w-48 p-3 rounded-2xl border border-blue-100 bg-blue-50/50 hover:border-blue-300 cursor-pointer transition-all">
+                  <div key={b.id} onClick={() => openBookingModal(b)} className="shrink-0 w-48 p-3 rounded-2xl border border-blue-100 bg-white hover:border-blue-300 cursor-pointer transition-all shadow-sm">
                     <span className="text-[9px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-700 mb-1.5 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
                     <p className="font-bold text-sm truncate">{b.user_name}</p>
                     <p className="text-xs text-gray-500 mt-0.5 flex items-center"><Clock size={10} className="mr-1"/> {format(new Date(b.start_time), "d MMM HH:mm", {locale:fr})}</p>
@@ -391,7 +438,7 @@ export default function AdminPage() {
 
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           {searchTerm ? (
-             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-xl p-8 overflow-auto mt-4 lg:mt-0">
+             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-sm p-8 overflow-auto mt-2 lg:mt-0">
                 <div className="flex items-center justify-between mb-8 border-b pb-4">
                   <h2 className="text-2xl font-black">Résultats : "{searchTerm}"</h2>
                   <button onClick={() => setSearchTerm("")} className="text-sm font-bold bg-gray-100 px-4 py-2 rounded-xl hover:bg-gray-200">Effacer</button>
@@ -411,21 +458,24 @@ export default function AdminPage() {
                 </div>
              </div>
           ) : (
-            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden mt-4 lg:mt-0">
+            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden mt-2 lg:mt-0">
               <div className="flex-1 overflow-auto relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <table className="w-full border-separate border-spacing-0 min-w-[800px]">
                   <thead>
                     <tr className="sticky top-0 z-30">
-                      <th className="sticky left-0 z-50 bg-gray-100 border-b border-r border-gray-200 w-16 lg:w-20 h-16 shadow-[2px_2px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
+                      <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20 shadow-[1px_1px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
                       {spaces.map(space => (
-                        <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-200 h-16 px-2"><span className="text-[10px] font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span></th>
+                        <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight">
+                          <span className="text-[11px] lg:text-xs font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span>
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mt-1">{space.capacity ? `${space.capacity} places` : 'Capacité N/A'}</span>
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {hours.map(h => (
                       <tr key={h} className="h-16">
-                        <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center shadow-[2px_0_0_rgba(0,0,0,0.02)]">{h}:00</td>
+                        <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center shadow-[1px_0_0_rgba(0,0,0,0.02)]">{h}:00</td>
                         {spaces.map(space => {
                           const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
                           return (
@@ -453,7 +503,7 @@ export default function AdminPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900">Bloquer des créneaux</h2>
+              <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900 flex items-center"><Lock className="mr-2" size={20}/> Bloquer</h2>
               <button onClick={() => setShowBlockModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5"/></button>
             </div>
             <form onSubmit={generateBlocks} className="space-y-4">
@@ -477,6 +527,34 @@ export default function AdminPage() {
               </div>
               <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Bloquer ces créneaux</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ALERTE CONFLIT */}
+      {conflictModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setConflictModal(false)}}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h2 className="text-xl font-black uppercase tracking-tight text-red-600 flex items-center"><AlertTriangle className="mr-2" size={24}/> Conflits détectés</h2>
+              <button onClick={() => setConflictModal(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X className="w-5 h-5"/></button>
+            </div>
+            <p className="text-sm text-gray-600 mb-6 font-medium leading-relaxed">Les réservations suivantes chevauchent les créneaux que vous essayez de bloquer. Voulez-vous tout de même forcer le blocage ?</p>
+            
+            <div className="flex-1 overflow-auto mb-6 space-y-3 bg-red-50/50 p-4 rounded-2xl border border-red-100">
+              {conflictingBookings.map((b, i) => (
+                <div key={i} className="p-3 bg-white border border-red-200 rounded-xl shadow-sm">
+                  <span className="text-[9px] font-black px-2 py-0.5 rounded bg-red-100 text-red-700 mb-1 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
+                  <p className="font-bold text-sm text-gray-900">{b.user_name}</p>
+                  <p className="text-xs text-gray-500 mt-1 flex items-center"><Clock size={12} className="mr-1"/> {format(new Date(b.start_time), "d MMM yyyy • HH:mm", {locale:fr})} à {format(new Date(b.end_time), "HH:mm")}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 shrink-0">
+              <button onClick={() => setConflictModal(false)} className="flex-1 p-4 bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider">Annuler</button>
+              <button onClick={() => executeBlockInsertion(pendingBlocks)} className="flex-1 p-4 bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider">Forcer</button>
+            </div>
           </div>
         </div>
       )}
