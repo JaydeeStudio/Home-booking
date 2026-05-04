@@ -186,17 +186,17 @@ export default function Home() {
 
       {/* SIDEBAR DESKTOP */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-8 border-b border-gray-100 flex flex-col gap-6">
-          <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer group">
+        <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
+          <div onClick={returnHome} className="cursor-pointer group">
             <div className="group-hover:scale-105 transition-transform">
               <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
             </div>
           </div>
           
-          <div className="inline-flex items-center space-x-2 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg w-max">
+          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max">
              <DoorOpen size={14} className="text-gray-900" />
-             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">
-               Réservation de salle
+             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
+               Réservation
              </span>
           </div>
         </div>
