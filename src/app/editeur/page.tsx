@@ -65,31 +65,37 @@ export default function EditeurPage() {
     setSpaces(spaces.map(s => s.id === id ? { ...s, [field]: value } : s));
   };
 
-  // --- NOUVEAU : GESTION DES IMAGES ---
+  // --- MISE À JOUR : GESTION DES IMAGES PAR LOT ---
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, spaceId: string, currentUrls: string) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploadingSpaceId(spaceId);
 
     try {
-      // 1. On prépare le nom du fichier (pour éviter les doublons, on met la date)
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${spaceId}-${Date.now()}.${fileExt}`;
+      const newPublicUrls: string[] = [];
+      const existingUrls = currentUrls ? currentUrls.split(',').map(u => u.trim()).filter(Boolean) : [];
 
-      // 2. On envoie l'image dans le bucket 'room-images'
-      const { error: uploadError } = await supabase.storage.from('room-images').upload(fileName, file);
-      if (uploadError) throw uploadError;
+      // On boucle sur tous les fichiers glissés
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        // On ajoute "i" au nom pour éviter que les images envoyées la même milliseconde s'écrasent
+        const fileName = `${spaceId}-${Date.now()}-${i}.${fileExt}`;
 
-      // 3. On récupère le lien public de cette image
-      const { data: { publicUrl } } = supabase.storage.from('room-images').getPublicUrl(fileName);
+        const { error: uploadError } = await supabase.storage.from('room-images').upload(fileName, file);
+        if (uploadError) throw uploadError;
 
-      // 4. On l'ajoute à la liste des images de la salle (séparées par des virgules)
-      const newUrls = currentUrls ? `${currentUrls}, ${publicUrl}` : publicUrl;
-      updateSpaceState(spaceId, 'image_url', newUrls);
+        const { data: { publicUrl } } = supabase.storage.from('room-images').getPublicUrl(fileName);
+        newPublicUrls.push(publicUrl);
+      }
+
+      // On combine les anciennes URLs avec les nouvelles
+      const updatedUrlsArray = [...existingUrls, ...newPublicUrls];
+      updateSpaceState(spaceId, 'image_url', updatedUrlsArray.join(', '));
 
     } catch (error: any) {
-      alert("Erreur lors de l'envoi de l'image : " + error.message);
+      alert("Erreur lors de l'envoi des images : " + error.message);
     } finally {
       setUploadingSpaceId(null);
       e.target.value = ''; // On réinitialise l'input
@@ -102,7 +108,6 @@ export default function EditeurPage() {
     const newUrlsArray = urlsArray.filter(u => u !== urlToRemove);
     updateSpaceState(spaceId, 'image_url', newUrlsArray.join(', '));
   };
-  // -------------------------------------
 
   if (loading) return null;
   
@@ -203,16 +208,16 @@ export default function EditeurPage() {
                           </div>
                         </div>
 
-                        {/* NOUVELLE ZONE DRAG & DROP POUR LES IMAGES */}
                         <div>
                           <label className="block text-[10px] uppercase tracking-widest font-black text-gray-400 mb-2">Galerie Photos</label>
                           <div className="mt-2 border-2 border-dashed border-gray-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors relative bg-white">
                             <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
-                            <p className="text-xs text-gray-500 font-bold">Cliquez ou glissez une image ici</p>
-                            <p className="text-[10px] text-gray-400 mt-1">(JPG, PNG...)</p>
+                            <p className="text-xs text-gray-500 font-bold">Cliquez ou glissez vos images ici</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Vous pouvez sélectionner plusieurs images d'un coup.</p>
                             <input 
                               type="file" 
                               accept="image/*" 
+                              multiple /* NOUVEAU : Autorise la sélection de plusieurs fichiers */
                               onChange={(e) => handleImageUpload(e, space.id, space.image_url || "")}
                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                               disabled={uploadingSpaceId === space.id}
@@ -225,7 +230,6 @@ export default function EditeurPage() {
                             )}
                           </div>
                           
-                          {/* Miniatures des images uploadées */}
                           {space.image_url && (
                             <div className="flex gap-3 mt-4 overflow-x-auto pb-2 scroll-smooth">
                               {space.image_url.split(',').map((url: string) => url.trim()).filter(Boolean).map((url: string, idx: number) => (
