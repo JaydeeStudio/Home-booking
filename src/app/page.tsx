@@ -162,21 +162,19 @@ export default function Home() {
       
       {/* HEADER MOBILE (TRÈS DISCRET) */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-40 shrink-0">
-        <div onClick={returnHome} className="flex items-center space-x-2 cursor-pointer">
-          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
-          <h1 className="text-sm font-black uppercase tracking-tight text-gray-900">Home</h1>
-        </div>
+<div onClick={returnHome} className="flex items-center cursor-pointer">
+  <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
+</div>
       </div>
 
       {/* SIDEBAR DESKTOP (CONTENANT L'INTRODUCTION) */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8 border-b border-gray-100 flex flex-col gap-6">
-          <div onClick={returnHome} className="flex items-center space-x-3 cursor-pointer group">
-            <div className="w-10 h-10 flex flex-shrink-0 group-hover:scale-105 transition-transform">
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 leading-tight">Home</h1>
-          </div>
+          <div onClick={returnHome} className="flex items-center cursor-pointer group">
+  <div className="group-hover:scale-105 transition-transform">
+    <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
+  </div>
+</div>
           
           <div>
             <div className="inline-flex items-center space-x-2 bg-gray-50 border border-gray-200 px-2.5 py-1.5 rounded-lg mb-3">

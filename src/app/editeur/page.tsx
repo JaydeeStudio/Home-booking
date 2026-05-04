@@ -195,11 +195,9 @@ export default function EditeurPage() {
       {/* SIDEBAR DESKTOP */}
       <aside className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 shrink-0 hidden md:flex">
         <div className="p-8 border-b border-gray-100">
-          <h1 className="text-2xl font-black uppercase tracking-tight text-gray-900 leading-tight">
-            <span className="block">Site</span>
-            <span className="block text-indigo-600 text-sm">Panneau d'édition</span>
-          </h1>
-        </div>
+  <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-6 object-contain mb-2" />
+  <span className="block text-indigo-600 text-[10px] font-black uppercase tracking-[0.2em]">Panneau d'édition</span>
+</div>
         
         <div className="p-4 flex-1 flex flex-col gap-2 overflow-y-auto">
           <button 
@@ -231,7 +229,10 @@ export default function EditeurPage() {
         
         {/* En-tête mobile */}
         <div className="md:hidden bg-white p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20 shadow-sm">
-           <h1 className="font-black text-lg text-indigo-600 tracking-tight">Éditeur</h1>
+          <div className="flex flex-col">
+  <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-4 object-contain" />
+  <span className="text-indigo-600 text-[8px] font-black uppercase tracking-widest mt-0.5">Éditeur</span>
+</div>
            <div className="flex gap-2">
              <button 
                onClick={() => setActiveTab("textes")} 
