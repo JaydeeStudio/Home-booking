@@ -310,7 +310,10 @@ export default function Home() {
                       {spaces.map(space => {
                         const spaceBookings = bookings.filter(b => b.space_id === space.id);
                         const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                        const isPast = new Date(currentDate).setHours(h) < new Date();
+                        
+                        const slotTime = new Date(currentDate); 
+                        slotTime.setHours(h, 0, 0, 0);
+                        const isPast = slotTime < new Date();
                         
                         return (
                           <td key={space.id} className={`border-r border-b border-gray-100 relative p-0 h-16 group ${isPast ? 'bg-gray-100' : 'bg-white hover:bg-gray-50'}`}>
