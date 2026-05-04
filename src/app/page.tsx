@@ -174,12 +174,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* TEXTE D'INTRO MOBILE (BEIGE CLAIR SANS OMBRE) */}
-      <div className="lg:hidden bg-[#FAF6F1] px-6 py-5 shrink-0 text-center border-b border-gray-100">
+      {/* TEXTE D'INTRO MOBILE (RETOUR AU BEIGE CHALEUREUX) */}
+      <div className="lg:hidden bg-[#F4E5D2] px-5 py-4 shrink-0 text-center border-b border-[#EADDCC] shadow-sm">
         <h2 className="text-sm font-black text-black mb-1.5 leading-snug">
           {siteContent.intro_title}
         </h2>
-        <p className="text-[11px] text-gray-600 font-medium leading-relaxed whitespace-pre-wrap">
+        <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
           {siteContent.intro_paragraph}
         </p>
       </div>
@@ -203,12 +203,12 @@ export default function Home() {
 
         <div className="p-6 flex-1 overflow-y-auto">
           
-          {/* TEXTE D'INTRO DESKTOP (BEIGE CLAIR SANS OMBRE) */}
-          <div className="bg-[#FAF6F1] rounded-[24px] p-6 mb-8">
+          {/* TEXTE D'INTRO DESKTOP (RETOUR AU BEIGE CHALEUREUX) */}
+          <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
             <h2 className="text-sm font-black text-black mb-2 leading-snug">
               {siteContent.intro_title}
             </h2>
-            <p className="text-[11px] text-gray-600 font-medium leading-relaxed whitespace-pre-wrap">
+            <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
               {siteContent.intro_paragraph}
             </p>
           </div>
@@ -287,9 +287,17 @@ export default function Home() {
               <button onClick={() => {if(!isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className="p-2 hover:bg-gray-100 rounded-xl transition">
                 <ChevronLeft size={18}/>
               </button>
-              <span className="text-[13px] sm:text-lg font-black capitalize truncate">
-                {format(currentDate, "EEEE d MMMM", { locale: fr })}
-              </span>
+              
+              {/* Clic sur la date pour ouvrir le calendrier sur mobile */}
+              <div 
+                onClick={() => setIsSidebarOpen(true)} 
+                className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate"
+              >
+                <span className="text-[13px] sm:text-lg font-black capitalize truncate">
+                  {format(currentDate, "EEEE d MMMM", { locale: fr })}
+                </span>
+              </div>
+
               <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-xl transition">
                 <ChevronRight size={18}/>
               </button>
@@ -373,7 +381,7 @@ export default function Home() {
                         {spaceImages.map((_: any, idx: number) => (
                           <div 
                             key={idx} 
-                            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-3' : 'bg-white/50'}`} 
+                            className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} 
                           />
                         ))}
                       </div>
