@@ -1,0 +1,263 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase"; // Ajuste le chemin si besoin (par ex: "../lib/supabase")
+import { ShieldCheck, LogOut, LayoutTemplate, FileText, Save, CheckCircle2 } from "lucide-react";
+
+// La liste de sécurité gravée dans le marbre
+const ADMIN_WHITELIST = [
+  "jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", 
+  "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", 
+  "mathilde@eglisehome.com"
+];
+
+export default function EditeurPage() {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("textes");
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Stockage des données
+  const [content, setContent] = useState({ intro_title: "", intro_paragraph: "", cgv_text: "" });
+  const [spaces, setSpaces] = useState<any[]>([]);
+
+  useEffect(() => {
+    const getSession = async () => { 
+      const { data: { session } } = await supabase.auth.getSession(); 
+      handleAuth(session?.user || null); 
+    };
+    getSession();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleAuth(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAuth = (user: any) => {
+    if (user && ADMIN_WHITELIST.includes(user.email!)) {
+      setUser(user);
+      fetchData();
+    } else if (user) { 
+      supabase.auth.signOut(); 
+      alert("Accès refusé à l'éditeur."); 
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
+  };
+
+  const fetchData = async () => {
+    // 1. Récupérer les textes généraux
+    const { data: contentData } = await supabase.from("site_content").select("*").eq("id", 1).single();
+    if (contentData) setContent(contentData);
+
+    // 2. Récupérer les salles existantes
+    const { data: spacesData } = await supabase.from("spaces").select("*").order("name");
+    if (spacesData) setSpaces(spacesData);
+  };
+
+  const handleSaveContent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { error } = await supabase.from("site_content").update({
+      intro_title: content.intro_title,
+      intro_paragraph: content.intro_paragraph,
+      cgv_text: content.cgv_text
+    }).eq("id", 1);
+
+    if (!error) triggerSuccess();
+    else alert("Erreur de sauvegarde (Textes) : " + error.message);
+  };
+
+  const handleSaveSpace = async (space: any) => {
+    const { error } = await supabase.from("spaces").update({
+      name: space.name,
+      capacity: space.capacity,
+      description: space.description,
+      color: space.color,
+      image_url: space.image_url
+    }).eq("id", space.id);
+
+    if (!error) triggerSuccess();
+    else alert("Erreur de sauvegarde (Salle) : " + error.message);
+  };
+
+  const triggerSuccess = () => {
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 2500);
+  };
+
+  const updateSpaceState = (id: string, field: string, value: any) => {
+    setSpaces(spaces.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  if (loading) return null;
+  
+  if (!user) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white p-10 rounded-3xl shadow-xl border max-w-md w-full text-center font-sans">
+        <ShieldCheck className="w-16 h-16 mx-auto mb-6 text-indigo-600" />
+        <h1 className="text-3xl font-black mb-2 text-gray-900">Mode Éditeur</h1>
+        <p className="text-gray-500 mb-8 font-medium">Connectez-vous pour modifier le contenu du site public.</p>
+        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/editeur' }})} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:scale-[1.02] transition-transform shadow-lg shadow-indigo-600/20">
+          Connexion Administrateur
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-[100dvh] bg-gray-50 font-sans overflow-hidden">
+      
+      {/* SIDEBAR DE NAVIGATION */}
+      <aside className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 shrink-0 hidden md:flex">
+        <div className="p-8 border-b border-gray-100">
+          <h1 className="text-2xl font-black uppercase tracking-tight text-gray-900 leading-tight">
+            <span className="block">Site</span>
+            <span className="block text-indigo-600 text-sm">Panneau d'édition</span>
+          </h1>
+        </div>
+        <div className="p-4 flex-1 flex flex-col gap-2 overflow-y-auto">
+          <button onClick={() => setActiveTab("textes")} className={`flex items-center p-4 rounded-2xl font-bold transition-all ${activeTab === "textes" ? "bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
+            <FileText size={20} className="mr-4" /> Textes & CGV
+          </button>
+          <button onClick={() => setActiveTab("espaces")} className={`flex items-center p-4 rounded-2xl font-bold transition-all ${activeTab === "espaces" ? "bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
+            <LayoutTemplate size={20} className="mr-4" /> Les Salles
+          </button>
+        </div>
+        <div className="p-6 border-t border-gray-100 bg-gray-50/50">
+          <button onClick={() => supabase.auth.signOut()} className="w-full flex items-center justify-center p-4 rounded-2xl font-bold text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100">
+            <LogOut size={20} className="mr-3" /> Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      {/* CONTENU PRINCIPAL */}
+      <main className="flex-1 overflow-y-auto relative">
+        {/* En-tête mobile simple */}
+        <div className="md:hidden bg-white p-4 border-b flex justify-between items-center sticky top-0 z-20">
+           <h1 className="font-black text-lg text-indigo-600">Éditeur</h1>
+           <div className="flex gap-2">
+             <button onClick={() => setActiveTab("textes")} className={`px-3 py-2 rounded-xl text-xs font-bold ${activeTab === "textes" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100"}`}>Textes</button>
+             <button onClick={() => setActiveTab("espaces")} className={`px-3 py-2 rounded-xl text-xs font-bold ${activeTab === "espaces" ? "bg-indigo-100 text-indigo-700" : "bg-gray-100"}`}>Salles</button>
+           </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto p-4 md:p-10">
+          
+          {/* ONGLET 1 : TEXTES ET CGV */}
+          {activeTab === "textes" && (
+            <div className="animate-in fade-in duration-300">
+              <h2 className="text-3xl font-black mb-8 text-gray-900 flex items-center"><FileText className="mr-4 text-indigo-500 w-8 h-8"/> Textes du site public</h2>
+              
+              <form onSubmit={handleSaveContent} className="space-y-8">
+                
+                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-200">
+                  <h3 className="font-black uppercase text-xs tracking-widest text-indigo-500 mb-6 flex items-center">
+                    <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">1</span> Page d'accueil
+                  </h3>
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">Titre principal (Gros titre)</label>
+                      <input type="text" required value={content.intro_title} onChange={(e) => setContent({...content, intro_title: e.target.value})} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">Paragraphe d'explication</label>
+                      <textarea required value={content.intro_paragraph} onChange={(e) => setContent({...content, intro_paragraph: e.target.value})} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none transition-all leading-relaxed" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-200">
+                  <div className="flex justify-between items-start mb-6">
+                    <h3 className="font-black uppercase text-xs tracking-widest text-indigo-500 flex items-center">
+                      <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">2</span> Conditions Générales (CGV)
+                    </h3>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-3 py-1 rounded-lg font-bold uppercase tracking-wider">Date auto.</span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-2">Texte complet des Conditions d'utilisation</label>
+                    <textarea required value={content.cgv_text} onChange={(e) => setContent({...content, cgv_text: e.target.value})} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none h-80 resize-none transition-all leading-relaxed" />
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-5 rounded-2xl hover:scale-[1.02] transition-transform flex items-center justify-center shadow-xl shadow-indigo-600/20 text-sm">
+                  <Save size={20} className="mr-3" /> Enregistrer toutes les modifications de texte
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ONGLET 2 : SALLES */}
+          {activeTab === "espaces" && (
+            <div className="animate-in fade-in duration-300">
+              <h2 className="text-3xl font-black mb-8 text-gray-900 flex items-center"><LayoutTemplate className="mr-4 text-indigo-500 w-8 h-8"/> Gérer les Salles</h2>
+              <p className="text-gray-500 font-medium mb-8">Modifiez ici les informations visibles par le public pour chaque salle. N'oubliez pas d'enregistrer chaque salle individuellement.</p>
+              
+              <div className="space-y-8">
+                {spaces.map(space => (
+                  <div key={space.id} className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-gray-200 relative overflow-hidden">
+                    {/* Bandeau de couleur latérale */}
+                    <div className="absolute left-0 top-0 bottom-0 w-2" style={{backgroundColor: space.color}}></div>
+                    
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 border-b border-gray-100 pb-6 gap-4">
+                       <h3 className="text-2xl font-black uppercase tracking-tight" style={{color: space.color}}>{space.name}</h3>
+                       <button onClick={() => handleSaveSpace(space)} className="bg-gray-900 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center hover:bg-indigo-600 transition-colors shadow-lg">
+                         <Save size={16} className="mr-2" /> Enregistrer la salle
+                       </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      {/* Colonne gauche */}
+                      <div className="space-y-5">
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-widest font-black text-gray-400 mb-2">Nom de la salle</label>
+                          <input type="text" value={space.name} onChange={(e) => updateSpaceState(space.id, 'name', e.target.value)} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 transition-all" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-widest font-black text-gray-400 mb-2">Capacité (Places)</label>
+                            <input type="number" value={space.capacity} onChange={(e) => updateSpaceState(space.id, 'capacity', e.target.value)} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 transition-all" />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] uppercase tracking-widest font-black text-gray-400 mb-2">Couleur de la salle</label>
+                            <div className="flex items-center space-x-2 border border-gray-200 rounded-xl p-1 bg-gray-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-gray-900 transition-all">
+                              <input type="color" value={space.color} onChange={(e) => updateSpaceState(space.id, 'color', e.target.value)} className="h-10 w-10 rounded-lg cursor-pointer border-0 bg-transparent p-0" />
+                              <input type="text" value={space.color} onChange={(e) => updateSpaceState(space.id, 'color', e.target.value)} className="w-full bg-transparent font-bold text-sm outline-none uppercase px-2" />
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-widest font-black text-gray-400 mb-2 flex items-center justify-between">
+                            <span>Liens des photos</span>
+                            <span className="text-[8px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Séparés par des virgules</span>
+                          </label>
+                          <textarea value={space.image_url || ""} onChange={(e) => updateSpaceState(space.id, 'image_url', e.target.value)} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-medium outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 text-xs h-24 resize-none transition-all leading-relaxed" placeholder="https://lien-image1.jpg, https://lien-image2.jpg" />
+                        </div>
+                      </div>
+                      
+                      {/* Colonne droite */}
+                      <div className="flex flex-col">
+                         <label className="block text-[10px] uppercase tracking-widest font-black text-gray-400 mb-2">Description & Matériel fourni</label>
+                         <textarea value={space.description || ""} onChange={(e) => updateSpaceState(space.id, 'description', e.target.value)} className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium outline-none focus:bg-white focus:ring-2 focus:ring-gray-900 text-sm flex-1 min-h-[200px] resize-none transition-all leading-relaxed" placeholder="Décrivez l'ambiance de la salle, le mobilier (tables, chaises) et le matériel disponible (TV, projecteur, Wifi...)" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      {/* NOTIFICATION FLOTTANTE DE SUCCÈS */}
+      {showSuccess && (
+        <div className="fixed bottom-8 right-8 z-50 bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center font-bold animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <CheckCircle2 className="text-green-400 mr-3 w-6 h-6" />
+          Modifications enregistrées avec succès !
+        </div>
+      )}
+    </div>
+  );
+}
