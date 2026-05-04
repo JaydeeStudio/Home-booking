@@ -265,17 +265,14 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION */}
-        <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
-          <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
-            <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
-            <div>
-              <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-2">{siteContent.intro_title}</h2>
-              <p className="text-gray-500 font-medium text-sm lg:text-base max-w-3xl leading-relaxed whitespace-pre-wrap">
-                {siteContent.intro_paragraph}
-              </p>
-            </div>
-          </div>
+        {/* SECTION HERO D'EXPLICATION OPTIMISÉE */}
+        <div className="px-4 lg:px-8 pt-10 pb-6 shrink-0 flex flex-col items-center justify-center text-center">
+          <h2 className="text-3xl lg:text-5xl font-black text-gray-900 mb-4 tracking-tight max-w-4xl">
+            {siteContent.intro_title}
+          </h2>
+          <p className="text-gray-500 font-medium text-base lg:text-lg max-w-2xl leading-relaxed whitespace-pre-wrap">
+            {siteContent.intro_paragraph}
+          </p>
         </div>
 
         {/* HEADER DE NAVIGATION PUBLIC */}
