@@ -9,7 +9,6 @@ import {
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon } from "lucide-react";
 import Link from "next/link";
-// IMPORT DU CAPTCHA CLOUDFLARE
 import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function Home() {
@@ -18,6 +17,13 @@ export default function Home() {
   const [currentMonthView, setCurrentMonthView] = useState(startOfMonth(new Date()));
   const [spaces, setSpaces] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  
+  // NOUVEAU : État pour stocker les textes de l'éditeur
+  const [siteContent, setSiteContent] = useState({ 
+    intro_title: "Chargement...", 
+    intro_paragraph: "Veuillez patienter pendant le chargement des informations." 
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -27,7 +33,6 @@ export default function Home() {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
-  // ÉTAT POUR LE CAPTCHA
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
@@ -48,15 +53,23 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleEsc);
   }, []);
 
+  // NOUVEAU : On récupère les espaces ET les textes de l'éditeur
   useEffect(() => {
-    const fetchSpaces = async () => {
-      const { data } = await supabase.from("spaces").select("*");
-      if (data) {
-        setSpaces(data);
-        if (data.length > 0) setFormData(prev => ({ ...prev, space_id: data[0].id }));
+    const fetchData = async () => {
+      // Les espaces
+      const { data: spacesData } = await supabase.from("spaces").select("*");
+      if (spacesData) {
+        setSpaces(spacesData);
+        if (spacesData.length > 0) setFormData(prev => ({ ...prev, space_id: spacesData[0].id }));
+      }
+      
+      // Les textes de l'éditeur
+      const { data: contentData } = await supabase.from("site_content").select("intro_title, intro_paragraph").eq("id", 1).single();
+      if (contentData) {
+        setSiteContent(contentData);
       }
     };
-    fetchSpaces();
+    fetchData();
   }, []);
 
   const fetchBookings = async () => {
@@ -79,7 +92,6 @@ export default function Home() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // VÉRIFICATION DU CAPTCHA AVANT L'ENVOI
     if (!formData.cgv_accepted || !captchaToken) return;
 
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
@@ -115,7 +127,7 @@ export default function Home() {
 
     setIsModalOpen(false);
     setShowSuccess(true);
-    setCaptchaToken(null); // On réinitialise le captcha après succès
+    setCaptchaToken(null);
     fetchBookings(); 
   };
 
@@ -236,14 +248,14 @@ export default function Home() {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
         
-        {/* SECTION HERO D'EXPLICATION */}
+        {/* SECTION HERO D'EXPLICATION - MAINTENANT DYNAMIQUE */}
         <div className="px-4 lg:px-8 pt-6 pb-2 shrink-0">
           <div className="bg-white rounded-[24px] p-6 lg:p-8 border border-gray-200 shadow-sm flex items-start sm:items-center">
             <Info className="w-8 h-8 text-blue-500 mr-4 shrink-0 hidden sm:block" />
             <div>
-              <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-2">Bienvenue sur le portail de réservation.</h2>
-              <p className="text-gray-500 font-medium text-sm lg:text-base max-w-3xl leading-relaxed">
-                Sélectionnez une date dans le calendrier pour visualiser les disponibilités de nos salles en temps réel. Cliquez sur un créneau libre pour formuler votre demande. Chaque demande est soumise à la validation de notre administration.
+              <h2 className="text-xl lg:text-2xl font-black text-gray-900 mb-2">{siteContent.intro_title}</h2>
+              <p className="text-gray-500 font-medium text-sm lg:text-base max-w-3xl leading-relaxed whitespace-pre-wrap">
+                {siteContent.intro_paragraph}
               </p>
             </div>
           </div>
@@ -251,7 +263,6 @@ export default function Home() {
 
         {/* HEADER DE NAVIGATION PUBLIC */}
         <header className="px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-10 flex-shrink-0 w-full gap-2 lg:gap-0">
-          
           <div className="lg:hidden flex-shrink-0 w-[80px]">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
               <CalendarIcon size={20} />
@@ -317,7 +328,6 @@ export default function Home() {
                               {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             
-                            {/* Affichage normal des réservations */}
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                               <div key={b.id} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm pointer-events-none transition-all ${b.status === 'pending' ? 'opacity-60 border-dashed border-gray-400' : 'opacity-90'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color, borderColor: b.status === 'pending' ? 'transparent' : 'rgba(0,0,0,0.1)' }}>
                                 {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] uppercase mt-0.5">En attente</span>}
@@ -335,7 +345,7 @@ export default function Home() {
         </main>
       </div>
 
-      {/* MODAL PHOTOS DE LA SALLE */}
+      {/* MODAL PHOTOS DE LA SALLE - MAINTENANT DYNAMIQUE POUR LA DESCRIPTION */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
@@ -374,7 +384,7 @@ export default function Home() {
               <div className="inline-block px-3 py-1 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 mb-6 uppercase tracking-wider">
                 Capacité : {viewSpace.capacity ? `${viewSpace.capacity} places` : 'Non renseignée'}
               </div>
-              {viewSpace.description && <p className="text-gray-600 leading-relaxed font-medium">{viewSpace.description}</p>}
+              {viewSpace.description && <p className="text-gray-600 leading-relaxed font-medium whitespace-pre-wrap">{viewSpace.description}</p>}
               <button onClick={() => { setViewSpace(null); setFormData(prev => ({...prev, space_id: viewSpace.id, start_time: "10:00", end_time: "12:00"})); setIsModalOpen(true); }} className="w-full mt-8 bg-black text-white font-black uppercase tracking-widest py-4 rounded-2xl hover:scale-[1.02] transition-transform shadow-xl text-sm">Demander cette salle</button>
             </div>
           </div>
@@ -423,7 +433,6 @@ export default function Home() {
                 </label>
               </div>
 
-              {/* ZONE DU WIDGET TURNSTILE */}
               <div className="mt-4 flex justify-center">
                 <Turnstile
                   siteKey="0x4AAAAAADIiijhYB_5mdeNZ"
