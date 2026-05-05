@@ -259,12 +259,12 @@ export default function AdminPage() {
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
       {/* HEADER HAUT POUR MOBILE */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
+<div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
         <div onClick={returnHome} className="cursor-pointer shrink-0">
           <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
         </div>
         <div className="w-[1px] h-6 bg-gray-300 shrink-0"></div>
-        <div className="flex flex-col justify-center shrink-0">
+        <div className="flex flex-col justify-center items-center shrink-0">
           <div className="flex items-center space-x-1.5">
             <DoorOpen size={14} className="text-gray-900" />
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">

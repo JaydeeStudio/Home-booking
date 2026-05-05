@@ -254,14 +254,16 @@ export default function EditeurPage() {
               <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
             </div>
             <div className="w-[1px] h-6 bg-gray-300 shrink-0"></div>
-            <div className="flex flex-col justify-center shrink-0">
+            
+            {/* C'est ICI qu'on ajoute items-center 👇 */}
+            <div className="flex flex-col justify-center items-center shrink-0">
               <div className="flex items-center space-x-1.5">
                 <DoorOpen size={14} className="text-gray-900" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
                   Réservation
                 </span>
               </div>
-              <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 mt-0.5">Éditeur</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-indigo-500 mt-0.5">Éditeur</span>
             </div>
           </div>
 
