@@ -271,7 +271,7 @@ export default function AdminPage() {
               Réservation
             </span>
           </div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600 mt-0.5">Panneau admin</span>
+          <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600 mt-0.5">Administrateur</span>
         </div>
       </div>
 
@@ -291,7 +291,7 @@ export default function AdminPage() {
                  Réservation
                </span>
              </div>
-             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mt-1">Panneau admin</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mt-1">Administrateur</span>
           </div>
         </div>
 

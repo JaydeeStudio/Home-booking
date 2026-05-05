@@ -214,7 +214,7 @@ export default function EditeurPage() {
                  Réservation
                </span>
              </div>
-             <span className="text-[9px] font-black uppercase tracking-widest text-orange-600 mt-1">Panneau d'édition</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500 mt-1">Éditeur</span>
           </div>
         </div>
         
@@ -246,7 +246,7 @@ export default function EditeurPage() {
       {/* ZONE DE CONTENU PRINCIPAL */}
       <main className="flex-1 overflow-y-auto relative">
         
-        {/* En-tête mobile (AVEC LOGO ET SOUS-TITRE ORANGE) */}
+        {/* En-tête mobile (AVEC LOGO ET SOUS-TITRE INDIGO) */}
         <div className="md:hidden bg-white px-4 py-3 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20 shadow-sm shrink-0">
           
           <div className="flex items-center gap-3">
@@ -261,7 +261,7 @@ export default function EditeurPage() {
                   Réservation
                 </span>
               </div>
-              <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 mt-0.5">Panneau d'édition</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-orange-600 mt-0.5">Éditeur</span>
             </div>
           </div>
 
