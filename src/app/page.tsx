@@ -109,46 +109,71 @@ export default function Home() {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
-  // GESTION INTELLIGENTE DU CHANGEMENT DE L'HEURE DE DÉBUT
-  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newStart = e.target.value;
-    if (!newStart) return;
+  // ARRONDIT L'HEURE À LA DEMI-HEURE LA PLUS PROCHE (ET LIMITE 07:00 - 23:00)
+  const snapTime = (timeStr: string, isStart: boolean) => {
+    if (!timeStr) return isStart ? "07:00" : "07:30";
+    let [h, m] = timeStr.split(':').map(Number);
+    
+    if (isNaN(h) || isNaN(m)) return isStart ? "07:00" : "07:30";
 
-    let newEnd = formData.end_time;
-    const [sh, sm] = newStart.split(':').map(Number);
-    const [eh, em] = newEnd.split(':').map(Number);
+    // Arrondi à 00 ou 30
+    if (m < 15) m = 0;
+    else if (m < 45) m = 30;
+    else { m = 0; h += 1; }
 
-    // Si la nouvelle heure de début dépasse ou égale l'heure de fin, on repousse la fin de 30 min
-    if (sh * 60 + sm >= eh * 60 + em) {
-      newEnd = addMinutesToTimeStr(newStart, 30);
-    }
+    // Limites de la journée
+    if (h < 7) { h = 7; m = 0; }
+    if (h > 23 || (h === 23 && m > 0)) { h = 23; m = 0; }
+    if (isStart && h === 23 && m === 0) { h = 22; m = 30; } // Le début max est 22:30
 
-    setFormData(prev => ({ ...prev, start_time: newStart, end_time: newEnd }));
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
-  // GESTION INTELLIGENTE DU CHANGEMENT DE L'HEURE DE FIN
-  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEnd = e.target.value;
-    if (!newEnd) return;
-
-    const [sh, sm] = formData.start_time.split(':').map(Number);
+  // LORSQU'ON QUITTE LE CHAMP "DÉBUT"
+  const handleStartTimeBlur = () => {
+    const snappedStart = snapTime(formData.start_time, true);
+    let newEnd = formData.end_time;
+    
+    const [sh, sm] = snappedStart.split(':').map(Number);
     const [eh, em] = newEnd.split(':').map(Number);
-
-    // Si on essaie de mettre une fin avant le début, on force à début + 30 min
-    if (eh * 60 + em <= sh * 60 + sm) {
-      const forcedEnd = addMinutesToTimeStr(formData.start_time, 30);
-      setFormData(prev => ({ ...prev, end_time: forcedEnd }));
-    } else {
-      setFormData(prev => ({ ...prev, end_time: newEnd }));
+    
+    // Si la fin est avant le début (ou égale), on ajuste automatiquement
+    if (sh * 60 + sm >= eh * 60 + em) {
+      newEnd = addMinutesToTimeStr(snappedStart, 30);
     }
+    
+    if (newEnd > "23:00") newEnd = "23:00";
+    setFormData(prev => ({ ...prev, start_time: snappedStart, end_time: newEnd }));
+  };
+
+  // LORSQU'ON QUITTE LE CHAMP "FIN"
+  const handleEndTimeBlur = () => {
+    let snappedEnd = snapTime(formData.end_time, false);
+    const [sh, sm] = formData.start_time.split(':').map(Number);
+    const [eh, em] = snappedEnd.split(':').map(Number);
+
+    if (eh * 60 + em <= sh * 60 + sm) {
+      snappedEnd = addMinutesToTimeStr(formData.start_time, 30);
+    }
+    if (snappedEnd > "23:00") snappedEnd = "23:00";
+
+    setFormData(prev => ({ ...prev, end_time: snappedEnd }));
   };
 
   const openBookingModal = (spaceId = "") => {
     const now = new Date();
-    if (now.getMinutes() < 30) now.setMinutes(30, 0, 0);
-    else now.setHours(now.getHours() + 1, 0, 0, 0);
+    let h = now.getHours();
+    let m = now.getMinutes();
+
+    // On arrondit à la prochaine demi-heure
+    if (m < 30) { m = 30; }
+    else { m = 0; h += 1; }
+
+    // On limite aux heures d'ouverture par défaut (07:00 - 22:30 max start)
+    if (h < 7) { h = 7; m = 0; }
+    if (h >= 23) { h = 22; m = 30; }
     
-    const startStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const startStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     const endStr = addMinutesToTimeStr(startStr, 30);
 
     setFormData({ ...formData, space_id: spaceId || spaces[0]?.id || "", start_time: startStr, end_time: endStr });
@@ -156,8 +181,12 @@ export default function Home() {
   };
 
   const handleSlotClick = (spaceId: string, hour: number) => {
-    const startStr = hour.toString().padStart(2, '0') + ":00";
-    const endStr = hour.toString().padStart(2, '0') + ":30";
+    let h = hour;
+    if (h < 7) h = 7;
+    if (h > 22) h = 22;
+
+    const startStr = h.toString().padStart(2, '0') + ":00";
+    const endStr = h.toString().padStart(2, '0') + ":30";
     setFormData(prev => ({ ...prev, space_id: spaceId, start_time: startStr, end_time: endStr }));
     setIsModalOpen(true);
   };
@@ -173,8 +202,6 @@ export default function Home() {
       setErrorMessage("Impossible de réserver dans le passé. Veuillez choisir un horaire futur."); 
       return; 
     }
-    
-    // Fallback de sécurité backend (théoriquement impossible à atteindre grâce aux gestionnaires plus haut)
     if (end <= start) { 
       setErrorMessage("L'heure de fin doit obligatoirement être après l'heure de début."); 
       return; 
@@ -256,7 +283,15 @@ export default function Home() {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
-      
+      {/* STYLE GLOBAL POUR MASQUER L'ICÔNE D'HORLOGE NATIVE SUR DESKTOP */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media (min-width: 1024px) {
+          .hide-time-icon::-webkit-calendar-picker-indicator {
+            display: none;
+          }
+        }
+      `}} />
+
       {/* HEADER MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
         <div onClick={returnHome} className="cursor-pointer shrink-0">
@@ -423,7 +458,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: 15 }, (_, i) => i + 8).map(h => (
+                  {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
                     <tr key={h} className="h-16">
                       <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center">{h}:00</td>
                       {spaces.map(space => {
@@ -514,10 +549,13 @@ export default function Home() {
                   <input 
                     type="time" 
                     step="1800"
+                    min="07:00"
+                    max="22:30"
                     required 
                     value={formData.start_time} 
-                    onChange={handleStartTimeChange} 
-                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                    onChange={(e) => setFormData({...formData, start_time: e.target.value})} 
+                    onBlur={handleStartTimeBlur}
+                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold hide-time-icon" 
                   />
                 </div>
                 <div className="flex-1">
@@ -525,10 +563,13 @@ export default function Home() {
                   <input 
                     type="time" 
                     step="1800"
+                    min="07:30"
+                    max="23:00"
                     required 
                     value={formData.end_time} 
-                    onChange={handleEndTimeChange} 
-                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                    onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
+                    onBlur={handleEndTimeBlur}
+                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold hide-time-icon" 
                   />
                 </div>
               </div>
