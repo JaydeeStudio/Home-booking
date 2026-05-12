@@ -49,7 +49,7 @@ export default function Home() {
   
   const [formData, setFormData] = useState({
     space_id: "", first_name: "", last_name: "", user_email: "", 
-    phone: "+41 ", reason: "", start_time: "10:00", end_time: "12:00",
+    phone: "+41 ", reason: "", start_time: "10:00", end_time: "10:30",
     cgv_accepted: false
   });
 
@@ -101,15 +101,55 @@ export default function Home() {
 
   useEffect(() => { fetchBookings(); }, [currentDate]);
 
+  // FONCTION POUR AJOUTER 30 MIN À UNE CHAÎNE D'HEURE ("10:00" -> "10:30")
+  const addMinutesToTimeStr = (timeStr: string, minsToAdd: number) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m + minsToAdd, 0, 0);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // GESTION INTELLIGENTE DU CHANGEMENT DE L'HEURE DE DÉBUT
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStart = e.target.value;
+    if (!newStart) return;
+
+    let newEnd = formData.end_time;
+    const [sh, sm] = newStart.split(':').map(Number);
+    const [eh, em] = newEnd.split(':').map(Number);
+
+    // Si la nouvelle heure de début dépasse ou égale l'heure de fin, on repousse la fin de 30 min
+    if (sh * 60 + sm >= eh * 60 + em) {
+      newEnd = addMinutesToTimeStr(newStart, 30);
+    }
+
+    setFormData(prev => ({ ...prev, start_time: newStart, end_time: newEnd }));
+  };
+
+  // GESTION INTELLIGENTE DU CHANGEMENT DE L'HEURE DE FIN
+  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEnd = e.target.value;
+    if (!newEnd) return;
+
+    const [sh, sm] = formData.start_time.split(':').map(Number);
+    const [eh, em] = newEnd.split(':').map(Number);
+
+    // Si on essaie de mettre une fin avant le début, on force à début + 30 min
+    if (eh * 60 + em <= sh * 60 + sm) {
+      const forcedEnd = addMinutesToTimeStr(formData.start_time, 30);
+      setFormData(prev => ({ ...prev, end_time: forcedEnd }));
+    } else {
+      setFormData(prev => ({ ...prev, end_time: newEnd }));
+    }
+  };
+
   const openBookingModal = (spaceId = "") => {
     const now = new Date();
     if (now.getMinutes() < 30) now.setMinutes(30, 0, 0);
     else now.setHours(now.getHours() + 1, 0, 0, 0);
     
     const startStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    
-    now.setMinutes(now.getMinutes() + 30);
-    const endStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const endStr = addMinutesToTimeStr(startStr, 30);
 
     setFormData({ ...formData, space_id: spaceId || spaces[0]?.id || "", start_time: startStr, end_time: endStr });
     setIsModalOpen(true);
@@ -117,7 +157,7 @@ export default function Home() {
 
   const handleSlotClick = (spaceId: string, hour: number) => {
     const startStr = hour.toString().padStart(2, '0') + ":00";
-    const endStr = (hour + 2 > 22 ? 22 : hour + 2).toString().padStart(2, '0') + ":00";
+    const endStr = hour.toString().padStart(2, '0') + ":30";
     setFormData(prev => ({ ...prev, space_id: spaceId, start_time: startStr, end_time: endStr }));
     setIsModalOpen(true);
   };
@@ -133,6 +173,8 @@ export default function Home() {
       setErrorMessage("Impossible de réserver dans le passé. Veuillez choisir un horaire futur."); 
       return; 
     }
+    
+    // Fallback de sécurité backend (théoriquement impossible à atteindre grâce aux gestionnaires plus haut)
     if (end <= start) { 
       setErrorMessage("L'heure de fin doit obligatoirement être après l'heure de début."); 
       return; 
@@ -229,7 +271,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* TEXTE D'INTRO MOBILE (RETOUR AU BEIGE CHALEUREUX) */}
+      {/* TEXTE D'INTRO MOBILE */}
       <div className="lg:hidden bg-[#F4E5D2] px-5 py-4 shrink-0 text-center border-b border-[#EADDCC] shadow-sm">
         <h2 className="text-sm font-black text-black mb-1.5 leading-snug">
           {siteContent.intro_title}
@@ -258,7 +300,7 @@ export default function Home() {
 
         <div className="p-6 flex-1 overflow-y-auto">
           
-          {/* TEXTE D'INTRO DESKTOP (RETOUR AU BEIGE CHALEUREUX) */}
+          {/* TEXTE D'INTRO DESKTOP */}
           <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
             <h2 className="text-sm font-black text-black mb-2 leading-snug">
               {siteContent.intro_title}
@@ -467,8 +509,28 @@ export default function Home() {
               <div className="bg-gray-50 border rounded-xl p-3 text-center text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</div>
               <div><label className="text-[10px] font-black text-gray-400 uppercase">Espace *</label><select className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               <div className="flex space-x-4">
-                <div className="flex-1"><label className="text-[10px] font-black text-gray-400 uppercase">Début *</label><input type="time" required value={formData.start_time} onChange={(e) => setFormData({...formData, start_time: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" /></div>
-                <div className="flex-1"><label className="text-[10px] font-black text-gray-400 uppercase">Fin *</label><input type="time" required value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" /></div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Début *</label>
+                  <input 
+                    type="time" 
+                    step="1800"
+                    required 
+                    value={formData.start_time} 
+                    onChange={handleStartTimeChange} 
+                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase">Fin *</label>
+                  <input 
+                    type="time" 
+                    step="1800"
+                    required 
+                    value={formData.end_time} 
+                    onChange={handleEndTimeChange} 
+                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="text-[10px] font-black text-gray-400 uppercase">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
