@@ -7,7 +7,7 @@ import {
   eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Save, Lock, CalendarRange, Calendar as CalendarIcon, DoorOpen, AlertTriangle } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Save, Lock, AlertTriangle, Calendar as CalendarIcon, DoorOpen } from "lucide-react";
 
 const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
 
@@ -103,7 +103,7 @@ export default function AdminPage() {
     setEditData({ user_name: b.user_name, space_id: b.space_id, reason: b.reason, start_time: format(new Date(b.start_time), "HH:mm"), end_time: format(new Date(b.end_time), "HH:mm") });
   };
 
-const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
+  const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
     const booking = bookings.find(b => b.id === id);
     if (!booking) return;
 
@@ -112,7 +112,6 @@ const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
       if (!error) {
         await notifyUser('DELETED', booking, adminMessage);
         
-        // NOUVEAU : Suppression dans Google Calendar
         if (booking.google_event_id) {
           fetch('/api/calendar', {
             method: 'POST',
@@ -131,11 +130,6 @@ const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
     if (!error) {
       await notifyUser('CONFIRMED', booking, adminMessage);
       
-      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
-    if (!error) {
-      await notifyUser('CONFIRMED', booking, adminMessage);
-      
-      // MISE À JOUR DANS GOOGLE CALENDAR
       if (booking.google_event_id) {
         fetch('/api/calendar', {
           method: 'POST',
@@ -145,7 +139,6 @@ const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
             booking: { 
               ...booking, 
               status: 'confirmed',
-              // On force le passage du nom de la salle ici 👇
               space_name: booking.spaces?.name 
             } 
           })
@@ -155,8 +148,9 @@ const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
       setSelectedBooking(null); 
       fetchBookings();
     }
+  };
 
-const handleEditSave = async (e: React.FormEvent) => {
+  const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const st = new Date(selectedBooking.start_time); const [sh, sm] = editData.start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
     const et = new Date(selectedBooking.end_time); const [eh, em] = editData.end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
@@ -169,7 +163,6 @@ const handleEditSave = async (e: React.FormEvent) => {
       const spaceObj = spaces.find(s => s.id === editData.space_id);
       await notifyUser('MODIFIED', { ...selectedBooking, space_id: editData.space_id, start_time: st.toISOString(), end_time: et.toISOString(), reason: editData.reason }, adminMessage);
       
-      // NOUVEAU: Mise à jour dans Google Calendar
       if (selectedBooking.google_event_id) {
         fetch('/api/calendar', {
           method: 'POST',
@@ -275,14 +268,12 @@ const handleEditSave = async (e: React.FormEvent) => {
     executeBlockInsertion(blocks);
   };
 
-const executeBlockInsertion = async (blocksToInsert: any[]) => {
-    // On ajoute .select() pour récupérer les ID générés par Supabase
+  const executeBlockInsertion = async (blocksToInsert: any[]) => {
     const { data: insertedBlocks, error } = await supabase.from("bookings").insert(blocksToInsert).select();
     
     if(error) {
       alert("Erreur lors de la création des blocs.");
     } else { 
-      // NOUVEAU : Création de tous les blocs dans Google Calendar
       if (insertedBlocks && insertedBlocks.length > 0) {
         insertedBlocks.forEach(block => {
           const spaceObj = spaces.find(s => s.id === block.space_id);
@@ -335,7 +326,7 @@ const executeBlockInsertion = async (blocksToInsert: any[]) => {
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
       
       {/* HEADER HAUT POUR MOBILE */}
-<div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
         <div onClick={returnHome} className="cursor-pointer shrink-0">
           <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
         </div>
@@ -367,7 +358,7 @@ const executeBlockInsertion = async (blocksToInsert: any[]) => {
                  Réservation
                </span>
              </div>
-             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mt-1">Administrateur</span>
+             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mt-1">Panneau admin</span>
           </div>
         </div>
 
