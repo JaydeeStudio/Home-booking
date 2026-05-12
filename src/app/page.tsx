@@ -9,7 +9,7 @@ import {
 import { fr } from "date-fns/locale";
 import { 
   ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, 
-  Calendar as CalendarIcon, DoorOpen 
+  Calendar as CalendarIcon, DoorOpen, AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -39,6 +39,7 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -58,7 +59,12 @@ export default function Home() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { setIsModalOpen(false); setViewSpace(null); setIsSidebarOpen(false); }
+      if (e.key === 'Escape') { 
+        setIsModalOpen(false); 
+        setViewSpace(null); 
+        setIsSidebarOpen(false);
+        setErrorMessage("");
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -95,6 +101,20 @@ export default function Home() {
 
   useEffect(() => { fetchBookings(); }, [currentDate]);
 
+  const openBookingModal = (spaceId = "") => {
+    const now = new Date();
+    if (now.getMinutes() < 30) now.setMinutes(30, 0, 0);
+    else now.setHours(now.getHours() + 1, 0, 0, 0);
+    
+    const startStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    now.setMinutes(now.getMinutes() + 30);
+    const endStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    setFormData({ ...formData, space_id: spaceId || spaces[0]?.id || "", start_time: startStr, end_time: endStr });
+    setIsModalOpen(true);
+  };
+
   const handleSlotClick = (spaceId: string, hour: number) => {
     const startStr = hour.toString().padStart(2, '0') + ":00";
     const endStr = (hour + 2 > 22 ? 22 : hour + 2).toString().padStart(2, '0') + ":00";
@@ -102,19 +122,25 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
-const handleBookingSubmit = async (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.cgv_accepted || !captchaToken) return;
 
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
     const end = new Date(currentDate); const [eh, em] = formData.end_time.split(':'); end.setHours(parseInt(eh), parseInt(em), 0);
     
-    if (start < new Date()) { alert("⚠️ Impossible de réserver dans le passé."); return; }
+    if (start < new Date()) { 
+      setErrorMessage("Impossible de réserver dans le passé. Veuillez choisir un horaire futur."); 
+      return; 
+    }
+    if (end <= start) { 
+      setErrorMessage("L'heure de fin doit obligatoirement être après l'heure de début."); 
+      return; 
+    }
 
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
 
-    // 1. Création dans Google Calendar D'ABORD pour récupérer l'ID
     let googleEventId = null;
     try {
       const calRes = await fetch('/api/calendar', {
@@ -123,14 +149,9 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
         body: JSON.stringify({ 
           action: 'create', 
           booking: { 
-            user_name: full_name, 
-            user_email: formData.user_email,
-            reason: formData.reason,
-            start_time: start.toISOString(), 
-            end_time: end.toISOString(), 
-            status: 'pending',
-            space_name: spaceObj?.name, 
-            space_color: spaceObj?.color 
+            user_name: full_name, user_email: formData.user_email, reason: formData.reason,
+            start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending',
+            space_name: spaceObj?.name, space_color: spaceObj?.color 
           } 
         })
       });
@@ -140,22 +161,22 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
       console.error("Erreur Google Calendar:", err);
     }
 
-    // 2. Insertion dans Supabase AVEC l'ID Google inclus dès le départ !
     const { data, error } = await supabase.from("bookings").insert([{
-      space_id: formData.space_id, 
-      user_name: full_name, 
-      user_email: formData.user_email,
-      user_phone: formData.phone, 
-      reason: formData.reason, 
-      start_time: start.toISOString(), 
-      end_time: end.toISOString(), 
-      status: 'pending',
+      space_id: formData.space_id, user_name: full_name, user_email: formData.user_email,
+      user_phone: formData.phone, reason: formData.reason, 
+      start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending',
       google_event_id: googleEventId
     }]).select();
 
-    if (error) { alert("Erreur: " + error.message); return; }
+    if (error) { 
+      if (error.message.includes("prevent_double_booking")) {
+        setErrorMessage("Ce créneau est malheureusement déjà pris ou en attente d'approbation. Veuillez choisir un autre horaire.");
+      } else {
+        setErrorMessage("Une erreur est survenue : " + error.message); 
+      }
+      return; 
+    }
 
-    // 3. Envoi de l'e-mail au staff en arrière-plan
     fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -322,7 +343,6 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
                 <ChevronLeft size={18}/>
               </button>
               
-              {/* Clic sur la date pour ouvrir le calendrier sur mobile */}
               <div 
                 onClick={() => setIsSidebarOpen(true)} 
                 className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate"
@@ -338,7 +358,7 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
             </div>
           </div>
 
-          <button onClick={() => setIsModalOpen(true)} className="h-12 bg-black text-white px-4 sm:px-6 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl flex items-center justify-center text-[10px]">
+          <button onClick={() => openBookingModal()} className="h-12 bg-black text-white px-4 sm:px-6 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl flex items-center justify-center text-[10px]">
             <Plus size={16} className="lg:mr-2" /> 
             <span className="hidden lg:inline">Nouvelle demande</span>
           </button>
@@ -429,7 +449,7 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
               <h2 className="text-2xl font-black uppercase mb-2" style={{ color: viewSpace.color }}>{viewSpace.name}</h2>
               <div className="inline-block px-3 py-1 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 mb-6 uppercase">Capacité : {viewSpace.capacity} places</div>
               <p className="text-gray-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">{viewSpace.description}</p>
-              <button onClick={() => { setViewSpace(null); setIsModalOpen(true); setFormData({...formData, space_id: viewSpace.id}); }} className="w-full mt-8 bg-black text-white font-black uppercase py-4 rounded-2xl shadow-xl text-sm hover:scale-[1.02] transition-transform">Demander cette salle</button>
+              <button onClick={() => { setViewSpace(null); openBookingModal(viewSpace.id); }} className="w-full mt-8 bg-black text-white font-black uppercase py-4 rounded-2xl shadow-xl text-sm hover:scale-[1.02] transition-transform">Demander cette salle</button>
             </div>
           </div>
         </div>
@@ -468,6 +488,22 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
               </div>
               <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ERREUR GLOBALE */}
+      {errorMessage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[150] p-4" onMouseDown={() => setErrorMessage("")}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20" onMouseDown={e => e.stopPropagation()}>
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Oups !</h2>
+            <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">{errorMessage}</p>
+            <button onClick={() => setErrorMessage("")} className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
+              Compris
+            </button>
           </div>
         </div>
       )}
