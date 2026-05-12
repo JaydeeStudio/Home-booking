@@ -114,45 +114,56 @@ const handleBookingSubmit = async (e: React.FormEvent) => {
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
 
-    const { data, error } = await supabase.from("bookings").insert([{
-      space_id: formData.space_id, user_name: full_name, user_email: formData.user_email,
-      user_phone: formData.phone, reason: formData.reason, 
-      start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending'
-    }]).select();
-
-    if (error) { alert("Erreur: " + error.message); return; }
-
-    const newBooking = data?.[0];
-
-    // 1. Envoi de l'e-mail en arrière-plan
-    fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'NEW_REQUEST', booking_id: newBooking?.id, user_name: full_name, user_email: formData.user_email,
-        space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
-      })
-    }).catch(console.error);
-
-    // 2. NOUVEAU: Création dans Google Calendar en arrière-plan
-    if (newBooking) {
-      fetch('/api/calendar', {
+    // 1. Création dans Google Calendar D'ABORD pour récupérer l'ID
+    let googleEventId = null;
+    try {
+      const calRes = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'create', 
-          booking: { ...newBooking, space_name: spaceObj?.name, space_color: spaceObj?.color } 
+          booking: { 
+            user_name: full_name, 
+            user_email: formData.user_email,
+            reason: formData.reason,
+            start_time: start.toISOString(), 
+            end_time: end.toISOString(), 
+            status: 'pending',
+            space_name: spaceObj?.name, 
+            space_color: spaceObj?.color 
+          } 
         })
-      })
-      .then(res => res.json())
-      .then(async (calData) => {
-        // On sauvegarde l'ID Google dans Supabase pour pouvoir le modifier plus tard
-        if (calData.google_event_id) {
-          await supabase.from("bookings").update({ google_event_id: calData.google_event_id }).eq("id", newBooking.id);
-        }
-      })
-      .catch(err => console.error("Erreur Calendar Creation:", err));
+      });
+      const calData = await calRes.json();
+      googleEventId = calData.google_event_id || null;
+    } catch (err) {
+      console.error("Erreur Google Calendar:", err);
     }
+
+    // 2. Insertion dans Supabase AVEC l'ID Google inclus dès le départ !
+    const { data, error } = await supabase.from("bookings").insert([{
+      space_id: formData.space_id, 
+      user_name: full_name, 
+      user_email: formData.user_email,
+      user_phone: formData.phone, 
+      reason: formData.reason, 
+      start_time: start.toISOString(), 
+      end_time: end.toISOString(), 
+      status: 'pending',
+      google_event_id: googleEventId
+    }]).select();
+
+    if (error) { alert("Erreur: " + error.message); return; }
+
+    // 3. Envoi de l'e-mail au staff en arrière-plan
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'NEW_REQUEST', booking_id: data?.[0]?.id, user_name: full_name, user_email: formData.user_email,
+        space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
+      })
+    }).catch(console.error);
 
     setIsModalOpen(false); setShowSuccess(true); setCaptchaToken(null); fetchBookings(); 
   };
