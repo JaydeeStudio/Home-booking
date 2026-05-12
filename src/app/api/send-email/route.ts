@@ -7,7 +7,8 @@ const formatGoogleDate = (date: Date) => date.toISOString().replace(/-|:|\.\d\d\
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { type, user_name, user_email, space_name, space_color = "#111827", start_time, end_time, reason, booking_id, admin_message } = body;
+    // On ajoute cgv_text pour le rappel
+    const { type, user_name, user_email, space_name, space_color = "#111827", start_time, end_time, reason, booking_id, admin_message, cgv_text } = body;
 
     const BASE_URL = "https://home-booking-sigma.vercel.app"; 
     const ADMIN_EMAIL = 'jonasdellomo@gmail.com'; 
@@ -76,6 +77,21 @@ export async function POST(req: Request) {
     } else if (type === 'MODIFIED') {
       emailTitle = "Réservation Ajustée"; subject = `⚠️ Votre réservation a été modifiée (${space_name})`;
       content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre réservation a bien été traitée, mais l'administration a dû y apporter des ajustements.</p>${adminNoteHtml}<div style="background: #fffbeb; border: 1px solid #fde68a; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b45309; font-size: 14px; text-align: center;"><strong>🔄 Rappel Agenda :</strong> N'oubliez pas de mettre à jour votre calendrier personnel.</p></div>${agendaButtons}${cancelLink}${legalFooter}`;
+    } else if (type === 'REMINDER') {
+      emailTitle = "Rappel de Réservation"; subject = `Rappel : Votre réservation de demain (${space_name})`;
+      content = `
+        <p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p>
+        <p style="font-size: 16px; color: #374151;">Ceci est un petit rappel automatique pour votre réservation de demain dans l'espace <strong>${space_name}</strong>.</p>
+        <p style="font-size: 16px; color: #374151;"><strong>Heure de début :</strong> ${start_time}</p>
+        
+        <div style="background: #F9FAFB; padding: 20px; border-radius: 12px; margin: 25px 0; border: 1px solid #E5E7EB;">
+          <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase; color: #6B7280; letter-spacing: 1px;">Rappel des conditions d'utilisation</h3>
+          <div style="font-size: 13px; color: #4B5563; white-space: pre-wrap;">${cgv_text}</div>
+        </div>
+        
+        <p style="font-size: 16px; color: #374151;">Merci de veiller au rangement, à la propreté de la salle, et de bien éteindre les lumières avant votre départ.</p>
+        <p style="font-size: 16px; color: #374151;">Excellente journée !</p>
+      `;
     }
 
     return NextResponse.json(await resend.emails.send({
