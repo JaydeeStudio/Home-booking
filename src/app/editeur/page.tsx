@@ -254,8 +254,6 @@ export default function EditeurPage() {
               <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
             </div>
             <div className="w-[1px] h-6 bg-gray-300 shrink-0"></div>
-            
-            {/* C'est ICI qu'on ajoute items-center 👇 */}
             <div className="flex flex-col justify-center items-center shrink-0">
               <div className="flex items-center space-x-1.5">
                 <DoorOpen size={14} className="text-gray-900" />

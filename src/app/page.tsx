@@ -102,7 +102,7 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
-  const handleBookingSubmit = async (e: React.FormEvent) => {
+const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.cgv_accepted || !captchaToken) return;
 
@@ -122,14 +122,37 @@ export default function Home() {
 
     if (error) { alert("Erreur: " + error.message); return; }
 
+    const newBooking = data?.[0];
+
+    // 1. Envoi de l'e-mail en arrière-plan
     fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'NEW_REQUEST', booking_id: data?.[0].id, user_name: full_name, user_email: formData.user_email,
+        type: 'NEW_REQUEST', booking_id: newBooking?.id, user_name: full_name, user_email: formData.user_email,
         space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
       })
     }).catch(console.error);
+
+    // 2. NOUVEAU: Création dans Google Calendar en arrière-plan
+    if (newBooking) {
+      fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'create', 
+          booking: { ...newBooking, space_name: spaceObj?.name, space_color: spaceObj?.color } 
+        })
+      })
+      .then(res => res.json())
+      .then(async (calData) => {
+        // On sauvegarde l'ID Google dans Supabase pour pouvoir le modifier plus tard
+        if (calData.google_event_id) {
+          await supabase.from("bookings").update({ google_event_id: calData.google_event_id }).eq("id", newBooking.id);
+        }
+      })
+      .catch(err => console.error("Erreur Calendar Creation:", err));
+    }
 
     setIsModalOpen(false); setShowSuccess(true); setCaptchaToken(null); fetchBookings(); 
   };

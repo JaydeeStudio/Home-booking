@@ -103,7 +103,7 @@ export default function AdminPage() {
     setEditData({ user_name: b.user_name, space_id: b.space_id, reason: b.reason, start_time: format(new Date(b.start_time), "HH:mm"), end_time: format(new Date(b.end_time), "HH:mm") });
   };
 
-  const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
+const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
     const booking = bookings.find(b => b.id === id);
     if (!booking) return;
 
@@ -111,6 +111,16 @@ export default function AdminPage() {
       const { error } = await supabase.from("bookings").delete().eq("id", id);
       if (!error) {
         await notifyUser('DELETED', booking, adminMessage);
+        
+        // NOUVEAU : Suppression dans Google Calendar
+        if (booking.google_event_id) {
+          fetch('/api/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', booking })
+          }).catch(err => console.error("Erreur Calendar:", err));
+        }
+
         setBookings(prev => prev.filter(b => b.id !== id));
         setSelectedBooking(null);
       }
@@ -120,11 +130,25 @@ export default function AdminPage() {
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
     if (!error) {
       await notifyUser('CONFIRMED', booking, adminMessage);
-      setSelectedBooking(null); fetchBookings();
+      
+      // NOUVEAU : Mise à jour dans Google Calendar (Validation)
+      if (booking.google_event_id) {
+        fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'update', 
+            booking: { ...booking, status: 'confirmed' } 
+          })
+        }).catch(err => console.error("Erreur Calendar:", err));
+      }
+
+      setSelectedBooking(null); 
+      fetchBookings();
     }
   };
 
-  const handleEditSave = async (e: React.FormEvent) => {
+const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const st = new Date(selectedBooking.start_time); const [sh, sm] = editData.start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
     const et = new Date(selectedBooking.end_time); const [eh, em] = editData.end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
@@ -134,7 +158,27 @@ export default function AdminPage() {
     }).eq("id", selectedBooking.id);
 
     if (!error) {
+      const spaceObj = spaces.find(s => s.id === editData.space_id);
       await notifyUser('MODIFIED', { ...selectedBooking, space_id: editData.space_id, start_time: st.toISOString(), end_time: et.toISOString(), reason: editData.reason }, adminMessage);
+      
+      // NOUVEAU: Mise à jour dans Google Calendar
+      if (selectedBooking.google_event_id) {
+        fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'update', 
+            booking: { 
+              ...selectedBooking, 
+              status: 'confirmed', 
+              start_time: st.toISOString(), 
+              end_time: et.toISOString(),
+              space_name: spaceObj?.name
+            } 
+          })
+        }).catch(err => console.error("Erreur Calendar Update:", err));
+      }
+
       setSelectedBooking(null); setIsEditing(false); fetchBookings();
     }
   };
@@ -223,11 +267,35 @@ export default function AdminPage() {
     executeBlockInsertion(blocks);
   };
 
-  const executeBlockInsertion = async (blocksToInsert: any[]) => {
-    const { error } = await supabase.from("bookings").insert(blocksToInsert);
+const executeBlockInsertion = async (blocksToInsert: any[]) => {
+    // On ajoute .select() pour récupérer les ID générés par Supabase
+    const { data: insertedBlocks, error } = await supabase.from("bookings").insert(blocksToInsert).select();
+    
     if(error) {
       alert("Erreur lors de la création des blocs.");
     } else { 
+      // NOUVEAU : Création de tous les blocs dans Google Calendar
+      if (insertedBlocks && insertedBlocks.length > 0) {
+        insertedBlocks.forEach(block => {
+          const spaceObj = spaces.find(s => s.id === block.space_id);
+          fetch('/api/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              action: 'create', 
+              booking: { ...block, space_name: spaceObj?.name, space_color: spaceObj?.color } 
+            })
+          })
+          .then(res => res.json())
+          .then(async (calData) => {
+            if (calData.google_event_id) {
+              await supabase.from("bookings").update({ google_event_id: calData.google_event_id }).eq("id", block.id);
+            }
+          })
+          .catch(err => console.error("Erreur Calendar Block Creation:", err));
+        });
+      }
+
       setConflictModal(false);
       setShowBlockModal(false); 
       setBlockSuccessMessage(`${blocksToInsert.length} créneau(x) bloqué(s) avec succès !`);
