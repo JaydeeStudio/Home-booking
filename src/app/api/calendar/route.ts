@@ -28,23 +28,23 @@ export async function POST(req: Request) {
         description: `Raison: ${booking.reason}\nEmail: ${booking.user_email}\nLien: https://home-booking.vercel.app/admin`,
         start: { dateTime: booking.start_time },
         end: { dateTime: booking.end_time },
-        colorId: booking.space_color === '#EF4444' ? '11' : '1', // Adaptable selon tes couleurs
+        colorId: booking.space_color === '#EF4444' ? '11' : '1', 
       };
 
       const res = await calendar.events.insert({ calendarId, requestBody: event });
       return NextResponse.json({ google_event_id: res.data.id });
     }
 
-// 2. MISE À JOUR (Validation ou Modification)
+    // 2. MISE À JOUR (Validation ou Modification)
     if (action === 'update' && booking.google_event_id) {
-      // On récupère le nom de la salle qu'il soit dans space_name ou spaces.name
+      // On sécurise la récupération du nom de la salle
       const spaceName = booking.space_name || booking.spaces?.name || "Salle";
       
       await calendar.events.patch({
         calendarId,
         eventId: booking.google_event_id,
         requestBody: {
-          // On s'assure que si c'est confirmé, on met l'encoche ✅ et on retire [ATTENTE]
+          // Si le statut est confirmé, on met ✅ et on retire [ATTENTE]
           summary: `${booking.status === 'confirmed' ? '✅ ' : '[ATTENTE] '}${booking.user_name} - ${spaceName}`,
           start: { dateTime: booking.start_time },
           end: { dateTime: booking.end_time },
