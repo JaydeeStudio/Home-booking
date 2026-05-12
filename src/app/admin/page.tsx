@@ -131,14 +131,23 @@ const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
     if (!error) {
       await notifyUser('CONFIRMED', booking, adminMessage);
       
-      // NOUVEAU : Mise à jour dans Google Calendar (Validation)
+      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+    if (!error) {
+      await notifyUser('CONFIRMED', booking, adminMessage);
+      
+      // MISE À JOUR DANS GOOGLE CALENDAR
       if (booking.google_event_id) {
         fetch('/api/calendar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             action: 'update', 
-            booking: { ...booking, status: 'confirmed' } 
+            booking: { 
+              ...booking, 
+              status: 'confirmed',
+              // On force le passage du nom de la salle ici 👇
+              space_name: booking.spaces?.name 
+            } 
           })
         }).catch(err => console.error("Erreur Calendar:", err));
       }
@@ -146,7 +155,6 @@ const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
       setSelectedBooking(null); 
       fetchBookings();
     }
-  };
 
 const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();

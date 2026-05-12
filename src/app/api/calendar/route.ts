@@ -3,10 +3,14 @@ import { NextResponse } from 'next/server';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar'];
 
-// CORRECTION ICI : Google attend maintenant un objet unique {...}
+// Nettoyage agressif de la clé pour Vercel (gère les sauts de ligne et enlève les guillemets)
+const formattedPrivateKey = process.env.GOOGLE_PRIVATE_KEY
+  ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/^"|"$/g, '').trim()
+  : undefined;
+
 const auth = new google.auth.JWT({
   email: process.env.GOOGLE_CLIENT_EMAIL,
-  key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  key: formattedPrivateKey,
   scopes: SCOPES,
 });
 
@@ -31,13 +35,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ google_event_id: res.data.id });
     }
 
-    // 2. MISE À JOUR (Validation ou Modification)
+// 2. MISE À JOUR (Validation ou Modification)
     if (action === 'update' && booking.google_event_id) {
+      // On récupère le nom de la salle qu'il soit dans space_name ou spaces.name
+      const spaceName = booking.space_name || booking.spaces?.name || "Salle";
+      
       await calendar.events.patch({
         calendarId,
         eventId: booking.google_event_id,
         requestBody: {
-          summary: `${booking.status === 'confirmed' ? '✅ ' : '[ATTENTE] '}${booking.user_name} - ${booking.space_name}`,
+          // On s'assure que si c'est confirmé, on met l'encoche ✅ et on retire [ATTENTE]
+          summary: `${booking.status === 'confirmed' ? '✅ ' : '[ATTENTE] '}${booking.user_name} - ${spaceName}`,
           start: { dateTime: booking.start_time },
           end: { dateTime: booking.end_time },
         },
