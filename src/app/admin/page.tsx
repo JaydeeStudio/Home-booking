@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [conflictModal, setConflictModal] = useState(false);
   const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
   const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
+  const [errorMessage, setErrorMessage] = useState("");
   
   const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
 
@@ -122,32 +123,43 @@ export default function AdminPage() {
 
         setBookings(prev => prev.filter(b => b.id !== id));
         setSelectedBooking(null);
+      } else {
+        setErrorMessage("Erreur lors de la suppression : " + error.message);
       }
       return;
     }
 
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
-    if (!error) {
-      await notifyUser('CONFIRMED', booking, adminMessage);
-      
-      if (booking.google_event_id) {
-        fetch('/api/calendar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'update', 
-            booking: { 
-              ...booking, 
-              status: 'confirmed',
-              space_name: booking.spaces?.name 
-            } 
-          })
-        }).catch(err => console.error("Erreur Calendar:", err));
+    
+    // NOUVEAU : GESTION DES ERREURS
+    if (error) {
+      if (error.message.includes("prevent_double_booking")) {
+        setErrorMessage("Ce créneau chevauche une autre réservation ou un blocage déjà validé pour cette salle. Vérifiez bien les horaires (même une minute en commun suffit à bloquer !).");
+      } else {
+        setErrorMessage("Une erreur est survenue : " + error.message);
       }
-
-      setSelectedBooking(null); 
-      fetchBookings();
+      return;
     }
+
+    await notifyUser('CONFIRMED', booking, adminMessage);
+    
+    if (booking.google_event_id) {
+      fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'update', 
+          booking: { 
+            ...booking, 
+            status: 'confirmed',
+            space_name: booking.spaces?.name 
+          } 
+        })
+      }).catch(err => console.error("Erreur Calendar:", err));
+    }
+
+    setSelectedBooking(null); 
+    fetchBookings();
   };
 
   const handleEditSave = async (e: React.FormEvent) => {
@@ -159,29 +171,37 @@ export default function AdminPage() {
       space_id: editData.space_id, user_name: editData.user_name, reason: editData.reason, start_time: st.toISOString(), end_time: et.toISOString(), status: 'confirmed'
     }).eq("id", selectedBooking.id);
 
-    if (!error) {
-      const spaceObj = spaces.find(s => s.id === editData.space_id);
-      await notifyUser('MODIFIED', { ...selectedBooking, space_id: editData.space_id, start_time: st.toISOString(), end_time: et.toISOString(), reason: editData.reason }, adminMessage);
-      
-      if (selectedBooking.google_event_id) {
-        fetch('/api/calendar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'update', 
-            booking: { 
-              ...selectedBooking, 
-              status: 'confirmed', 
-              start_time: st.toISOString(), 
-              end_time: et.toISOString(),
-              space_name: spaceObj?.name
-            } 
-          })
-        }).catch(err => console.error("Erreur Calendar Update:", err));
+    // NOUVEAU : GESTION DES ERREURS
+    if (error) {
+      if (error.message.includes("prevent_double_booking")) {
+        setErrorMessage("Les horaires modifiés créent un conflit avec un autre événement déjà validé pour cette salle.");
+      } else {
+        setErrorMessage("Erreur de modification : " + error.message);
       }
-
-      setSelectedBooking(null); setIsEditing(false); fetchBookings();
+      return;
     }
+
+    const spaceObj = spaces.find(s => s.id === editData.space_id);
+    await notifyUser('MODIFIED', { ...selectedBooking, space_id: editData.space_id, start_time: st.toISOString(), end_time: et.toISOString(), reason: editData.reason }, adminMessage);
+    
+    if (selectedBooking.google_event_id) {
+      fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'update', 
+          booking: { 
+            ...selectedBooking, 
+            status: 'confirmed', 
+            start_time: st.toISOString(), 
+            end_time: et.toISOString(),
+            space_name: spaceObj?.name
+          } 
+        })
+      }).catch(err => console.error("Erreur Calendar Update:", err));
+    }
+
+    setSelectedBooking(null); setIsEditing(false); fetchBookings();
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
@@ -702,6 +722,21 @@ export default function AdminPage() {
                   )}
                 </div>
              </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL ERREUR GLOBALE */}
+      {errorMessage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[150] p-4" onMouseDown={() => setErrorMessage("")}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20">
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Impossible</h2>
+            <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">{errorMessage}</p>
+            <button onClick={() => setErrorMessage("")} className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
+              Compris
+            </button>
           </div>
         </div>
       )}
