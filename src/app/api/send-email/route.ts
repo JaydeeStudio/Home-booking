@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       content = `
         <p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p>
         <p style="font-size: 16px; color: #374151;">Ceci est un petit rappel automatique pour votre réservation de demain dans l'espace <strong>${space_name}</strong>.</p>
-        <p style="font-size: 16px; color: #374151;"><strong>Heure de début :</strong> ${start_time}</p>
+        <p style="font-size: 16px; color: #374151;"><strong>Heure de début :</strong> ${startDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
         
         <div style="background: #F9FAFB; padding: 20px; border-radius: 12px; margin: 25px 0; border: 1px solid #E5E7EB;">
           <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase; color: #6B7280; letter-spacing: 1px;">Rappel des conditions d'utilisation</h3>
