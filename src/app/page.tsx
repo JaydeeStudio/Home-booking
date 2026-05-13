@@ -129,50 +129,57 @@ export default function Home() {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
-  // LORSQU'ON QUITTE LE CHAMP "DÉBUT" (OU SUR LE SCROLL MOBILE)
-  const handleStartTimeBlur = () => {
-    let snappedStart = snapTime(formData.start_time, true);
+  // GESTIONNAIRE UNIFIÉ POUR L'HEURE DE DÉBUT (SNAPPING + VERROU PASSE)
+  const applyStartTimeLogic = (rawTime: string) => {
+    let snappedStart = snapTime(rawTime, true);
     
-    // NOUVEAU : EMPÊCHER LE CHOIX D'UNE HEURE PASSÉE (Pour aujourd'hui)
+    // VERROUILLAGE DU PASSÉ (Si on est aujourd'hui)
     if (isSameDay(currentDate, new Date())) {
       const now = new Date();
       const [sh, sm] = snappedStart.split(':').map(Number);
       const snappedDate = new Date();
       snappedDate.setHours(sh, sm, 0, 0);
 
-      // Si l'heure sélectionnée est dans le passé, on bondit au prochain créneau
+      // Si l'heure sélectionnée est dans le passé, on bondit au prochain créneau futur
       if (snappedDate < now) {
         let nh = now.getHours();
         let nm = now.getMinutes();
         if (nm < 30) { nm = 30; } else { nm = 0; nh += 1; }
+        // Limites de la journée
         if (nh < 7) { nh = 7; nm = 0; }
         if (nh >= 23) { nh = 22; nm = 30; }
         snappedStart = `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
       }
     }
 
+    // AJUSTEMENT AUTOMATIQUE DE LA FIN (+30 min minimum)
     let newEnd = formData.end_time;
     const [sh, sm] = snappedStart.split(':').map(Number);
     const [eh, em] = newEnd.split(':').map(Number);
     
-    // Si la fin est avant le début (ou égale), on ajuste automatiquement
     if (sh * 60 + sm >= eh * 60 + em) {
       newEnd = addMinutesToTimeStr(snappedStart, 30);
     }
     
+    // On ne dépasse pas 23h
     if (newEnd > "23:00") newEnd = "23:00";
+    
     setFormData(prev => ({ ...prev, start_time: snappedStart, end_time: newEnd }));
   };
 
-  // LORSQU'ON QUITTE LE CHAMP "FIN"
-  const handleEndTimeBlur = () => {
-    let snappedEnd = snapTime(formData.end_time, false);
+  // GESTIONNAIRE UNIFIÉ POUR L'HEURE DE FIN (SNAPPING + MINIMUM)
+  const applyEndTimeLogic = (rawTime: string) => {
+    let snappedEnd = snapTime(rawTime, false);
+    
     const [sh, sm] = formData.start_time.split(':').map(Number);
     const [eh, em] = snappedEnd.split(':').map(Number);
 
+    // Si on essaie de mettre une fin avant ou égale au début, on force à début + 30min
     if (eh * 60 + em <= sh * 60 + sm) {
       snappedEnd = addMinutesToTimeStr(formData.start_time, 30);
     }
+    
+    // On ne dépasse pas 23h
     if (snappedEnd > "23:00") snappedEnd = "23:00";
 
     setFormData(prev => ({ ...prev, end_time: snappedEnd }));
@@ -560,18 +567,12 @@ export default function Home() {
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
               <div className="bg-gray-50 border rounded-xl p-3 text-center text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase">Espace *</label><select className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase">Espace *</label>
-                <select className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
-                  {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-              
-              {/* CORRECTION DU CHEVAUCHEMENT MOBILE ICI (grid au lieu de flex) */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {/* LA STRUCTURE CORRIGÉE POUR MOBILE */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Début *</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label>
                   <input 
                     type="time" 
                     step="1800"
@@ -579,13 +580,16 @@ export default function Home() {
                     max="22:30"
                     required 
                     value={formData.start_time} 
-                    onChange={(e) => setFormData({...formData, start_time: e.target.value})} 
-                    onBlur={handleStartTimeBlur}
-                    className="w-full border rounded-xl p-3 bg-gray-50 font-bold hide-time-icon min-w-0 text-center sm:text-left" 
+                    onChange={(e) => {
+                      setFormData({...formData, start_time: e.target.value});
+                      setTimeout(() => applyStartTimeLogic(e.target.value), 0);
+                    }} 
+                    onBlur={(e) => applyStartTimeLogic(e.target.value)}
+                    className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold hide-time-icon" 
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Fin *</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Fin *</label>
                   <input 
                     type="time" 
                     step="1800"
@@ -593,35 +597,33 @@ export default function Home() {
                     max="23:00"
                     required 
                     value={formData.end_time} 
-                    onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
-                    onBlur={handleEndTimeBlur}
-                    className="w-full border rounded-xl p-3 bg-gray-50 font-bold hide-time-icon min-w-0 text-center sm:text-left" 
+                    onChange={(e) => {
+                      setFormData({...formData, end_time: e.target.value});
+                      setTimeout(() => applyEndTimeLogic(e.target.value), 0);
+                    }} 
+                    onBlur={(e) => applyEndTimeLogic(e.target.value)}
+                    className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold hide-time-icon" 
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
               </div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none" /></div>
-              
+              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none" /></div>
               <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <input type="checkbox" required checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer" />
                 <label className="ml-3 text-[11px] text-gray-600 font-medium">J'accepte les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link>.</label>
               </div>
-              
               <div className="mt-4 flex justify-center">
                 <Turnstile siteKey="0x4AAAAAADIiijhYB_5mdeNZ" onSuccess={(token) => setCaptchaToken(token)} onExpire={() => setCaptchaToken(null)} />
               </div>
-              
-              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>
-                Transmettre la demande
-              </button>
+              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
             </form>
           </div>
         </div>
