@@ -78,19 +78,37 @@ export async function POST(req: Request) {
       emailTitle = "Réservation Ajustée"; subject = `⚠️ Votre réservation a été modifiée (${space_name})`;
       content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre réservation a bien été traitée, mais l'administration a dû y apporter des ajustements.</p>${adminNoteHtml}<div style="background: #fffbeb; border: 1px solid #fde68a; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b45309; font-size: 14px; text-align: center;"><strong>🔄 Rappel Agenda :</strong> N'oubliez pas de mettre à jour votre calendrier personnel.</p></div>${agendaButtons}${cancelLink}${legalFooter}`;
     } else if (type === 'REMINDER') {
-      emailTitle = "Rappel de Réservation"; subject = `Rappel : Votre réservation de demain (${space_name})`;
+      emailTitle = "Rappel de Réservation"; 
+      subject = `Rappel : Votre réservation de demain (${space_name})`;
+      
+      // FIX HEURE : On force le fuseau horaire de la Suisse
+      const displayTime = startDate.toLocaleTimeString('fr-CH', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        timeZone: 'Europe/Zurich' 
+      });
+
       content = `
         <p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p>
         <p style="font-size: 16px; color: #374151;">Ceci est un petit rappel automatique pour votre réservation de demain dans l'espace <strong>${space_name}</strong>.</p>
-        <p style="font-size: 16px; color: #374151;"><strong>Heure de début :</strong> ${startDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
         
-        <div style="background: #F9FAFB; padding: 20px; border-radius: 12px; margin: 25px 0; border: 1px solid #E5E7EB;">
-          <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase; color: #6B7280; letter-spacing: 1px;">Rappel des conditions d'utilisation</h3>
-          <div style="font-size: 13px; color: #4B5563; white-space: pre-wrap;">${cgv_text}</div>
+        <div style="background: #f9fafb; padding: 20px; border-radius: 16px; margin: 25px 0; text-align: center; border: 1px solid #e5e7eb;">
+          <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold;">Heure de rendez-vous</p>
+          <p style="margin: 5px 0 0; color: #111827; font-size: 24px; font-weight: 900;">${displayTime}</p>
+        </div>
+
+        <div style="margin: 30px 0; text-align: center;">
+          <p style="font-size: 14px; color: #4b5563; margin-bottom: 15px;">Avant votre venue, merci de relire les consignes d'utilisation des locaux (rangement, ménage, extinction des feux).</p>
+          <a href="${BASE_URL}/cgv" style="display: inline-block; background: #111827; color: white; padding: 14px 24px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 13px; text-transform: uppercase;">Consulter les consignes</a>
         </div>
         
-        <p style="font-size: 16px; color: #374151;">Merci de veiller au rangement, à la propreté de la salle, et de bien éteindre les lumières avant votre départ.</p>
-        <p style="font-size: 16px; color: #374151;">Excellente journée !</p>
+        <p style="font-size: 14px; color: #6b7280; text-align: center; margin-top: 30px;">Besoin d'annuler ? <a href="${cancelUrl}" style="color: #ef4444; text-decoration: underline;">Cliquez ici</a></p>
+
+        <div style="margin-top: 50px; padding-top: 30px; border-top: 1px solid #f3f4f6; text-align: center;">
+          <img src="${LOGO_URL}" alt="H" style="height: 40px; margin-bottom: 15px;" />
+          <p style="margin: 0; font-size: 13px; color: #111827; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">Home</p>
+          <p style="margin: 4px 0 0; font-size: 12px; color: #9ca3af; font-style: normal;">Rue de la Borde 14 – 1018 Lausanne</p>
+        </div>
       `;
     }
 
