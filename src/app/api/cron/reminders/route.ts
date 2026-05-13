@@ -5,10 +5,10 @@ import { fr } from 'date-fns/locale';
 
 export async function GET(req: Request) {
   // 1. VÉRIFICATION DE SÉCURITÉ
-  const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Non autorisé', { status: 401 });
-  }
+  // const authHeader = req.headers.get('authorization');
+  // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  //   return new NextResponse('Non autorisé', { status: 401 });
+  // }
 
   try {
     // 2. CIBLER LA JOURNÉE DE DEMAIN
