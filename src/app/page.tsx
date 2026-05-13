@@ -129,11 +129,29 @@ export default function Home() {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
-  // LORSQU'ON QUITTE LE CHAMP "DÉBUT"
+  // LORSQU'ON QUITTE LE CHAMP "DÉBUT" (OU SUR LE SCROLL MOBILE)
   const handleStartTimeBlur = () => {
-    const snappedStart = snapTime(formData.start_time, true);
-    let newEnd = formData.end_time;
+    let snappedStart = snapTime(formData.start_time, true);
     
+    // NOUVEAU : EMPÊCHER LE CHOIX D'UNE HEURE PASSÉE (Pour aujourd'hui)
+    if (isSameDay(currentDate, new Date())) {
+      const now = new Date();
+      const [sh, sm] = snappedStart.split(':').map(Number);
+      const snappedDate = new Date();
+      snappedDate.setHours(sh, sm, 0, 0);
+
+      // Si l'heure sélectionnée est dans le passé, on bondit au prochain créneau
+      if (snappedDate < now) {
+        let nh = now.getHours();
+        let nm = now.getMinutes();
+        if (nm < 30) { nm = 30; } else { nm = 0; nh += 1; }
+        if (nh < 7) { nh = 7; nm = 0; }
+        if (nh >= 23) { nh = 22; nm = 30; }
+        snappedStart = `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+      }
+    }
+
+    let newEnd = formData.end_time;
     const [sh, sm] = snappedStart.split(':').map(Number);
     const [eh, em] = newEnd.split(':').map(Number);
     
@@ -542,9 +560,17 @@ export default function Home() {
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
               <div className="bg-gray-50 border rounded-xl p-3 text-center text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase">Espace *</label><select className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-              <div className="flex space-x-4">
-                <div className="flex-1">
+              
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase">Espace *</label>
+                <select className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
+                  {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              
+              {/* CORRECTION DU CHEVAUCHEMENT MOBILE ICI (grid au lieu de flex) */}
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase">Début *</label>
                   <input 
                     type="time" 
@@ -555,10 +581,10 @@ export default function Home() {
                     value={formData.start_time} 
                     onChange={(e) => setFormData({...formData, start_time: e.target.value})} 
                     onBlur={handleStartTimeBlur}
-                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold hide-time-icon" 
+                    className="w-full border rounded-xl p-3 bg-gray-50 font-bold hide-time-icon min-w-0 text-center sm:text-left" 
                   />
                 </div>
-                <div className="flex-1">
+                <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase">Fin *</label>
                   <input 
                     type="time" 
@@ -569,10 +595,11 @@ export default function Home() {
                     value={formData.end_time} 
                     onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
                     onBlur={handleEndTimeBlur}
-                    className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold hide-time-icon" 
+                    className="w-full border rounded-xl p-3 bg-gray-50 font-bold hide-time-icon min-w-0 text-center sm:text-left" 
                   />
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="text-[10px] font-black text-gray-400 uppercase">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
                 <div><label className="text-[10px] font-black text-gray-400 uppercase">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
@@ -582,14 +609,19 @@ export default function Home() {
                 <div><label className="text-[10px] font-black text-gray-400 uppercase">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
               </div>
               <div><label className="text-[10px] font-black text-gray-400 uppercase">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="w-full border rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none" /></div>
+              
               <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <input type="checkbox" required checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer" />
                 <label className="ml-3 text-[11px] text-gray-600 font-medium">J'accepte les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link>.</label>
               </div>
+              
               <div className="mt-4 flex justify-center">
                 <Turnstile siteKey="0x4AAAAAADIiijhYB_5mdeNZ" onSuccess={(token) => setCaptchaToken(token)} onExpire={() => setCaptchaToken(null)} />
               </div>
-              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
+              
+              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>
+                Transmettre la demande
+              </button>
             </form>
           </div>
         </div>

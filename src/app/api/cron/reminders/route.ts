@@ -3,9 +3,8 @@ import { supabase } from '../../../../lib/supabase';
 import { addDays, startOfDay, endOfDay } from 'date-fns';
 
 export async function GET(req: Request) {
-  // Décommente la sécurité une fois les tests finis
-  // const authHeader = req.headers.get('authorization');
-  // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) return new NextResponse('Non autorisé', { status: 401 });
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) return new NextResponse('Non autorisé', { status: 401 });
 
   try {
     const tomorrow = addDays(new Date(), 1);
