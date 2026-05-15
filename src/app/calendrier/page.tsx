@@ -346,15 +346,37 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label>
-                  <select required value={formData.start_time} onChange={(e) => handleStartTimeChange(e.target.value)} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold cursor-pointer">
-                    {generateTimeOptions("06:00", false, currentDate).map(time => <option key={time} value={time}>{time}</option>)}
-                  </select>
+                  <input 
+                    type="time" 
+                    step="900"
+                    min="06:00"
+                    max="22:45"
+                    required 
+                    value={formData.start_time} 
+                    onChange={(e) => {
+                      setFormData({...formData, start_time: e.target.value});
+                      setTimeout(() => applyStartTimeLogic(e.target.value), 0);
+                    }} 
+                    onBlur={(e) => applyStartTimeLogic(e.target.value)}
+                    className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                  />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Fin *</label>
-                  <select required value={formData.end_time} onChange={(e) => setFormData({...formData, end_time: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold cursor-pointer">
-                    {generateTimeOptions(formData.start_time, true, currentDate).map(time => <option key={time} value={time}>{time}</option>)}
-                  </select>
+                  <input 
+                    type="time" 
+                    step="900"
+                    min="06:15"
+                    max="23:00"
+                    required 
+                    value={formData.end_time} 
+                    onChange={(e) => {
+                      setFormData({...formData, end_time: e.target.value});
+                      setTimeout(() => applyEndTimeLogic(e.target.value), 0);
+                    }} 
+                    onBlur={(e) => applyEndTimeLogic(e.target.value)}
+                    className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                  />
                 </div>
               </div>
 
