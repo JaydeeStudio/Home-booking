@@ -101,7 +101,6 @@ export default function CalendarPage() {
 
   useEffect(() => { fetchBookings(); }, [currentDate]);
 
-  // FONCTION POUR AJOUTER DES MINUTES
   const addMinutesToTimeStr = (timeStr: string, minsToAdd: number) => {
     const [h, m] = timeStr.split(':').map(Number);
     const date = new Date();
@@ -109,14 +108,12 @@ export default function CalendarPage() {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
-  // ARRONDIT L'HEURE À LA TRANCHE DE 15 MIN LA PLUS PROCHE (ET LIMITE 06:00 - 23:00)
   const snapTime = (timeStr: string, isStart: boolean) => {
     if (!timeStr) return isStart ? "06:00" : "06:15";
     let [h, m] = timeStr.split(':').map(Number);
     
     if (isNaN(h) || isNaN(m)) return isStart ? "06:00" : "06:15";
 
-    // Arrondi à 00, 15, 30 ou 45
     const remainder = m % 15;
     if (remainder !== 0) {
       if (remainder < 8) m -= remainder;
@@ -125,43 +122,36 @@ export default function CalendarPage() {
     
     if (m >= 60) { m = 0; h += 1; }
 
-    // Limites de la journée
     if (h < 6) { h = 6; m = 0; }
     if (h > 23 || (h === 23 && m > 0)) { h = 23; m = 0; }
-    if (isStart && h === 23 && m === 0) { h = 22; m = 45; } // Le début max est 22:45
+    if (isStart && h === 23 && m === 0) { h = 22; m = 45; }
 
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   };
 
-  // GESTIONNAIRE UNIFIÉ POUR L'HEURE DE DÉBUT (SNAPPING + VERROU PASSE)
   const applyStartTimeLogic = (rawTime: string) => {
     let snappedStart = snapTime(rawTime, true);
     
-    // VERROUILLAGE DU PASSÉ (Si on est aujourd'hui)
     if (isSameDay(currentDate, new Date())) {
       const now = new Date();
       const [sh, sm] = snappedStart.split(':').map(Number);
       const snappedDate = new Date();
       snappedDate.setHours(sh, sm, 0, 0);
 
-      // Si l'heure sélectionnée est dans le passé, on bondit au prochain créneau futur
       if (snappedDate < now) {
         let nh = now.getHours();
         let nm = now.getMinutes();
         
-        // Arrondi au prochain 15 min
         const remainder = nm % 15;
         nm += (15 - remainder);
         if (nm >= 60) { nm = 0; nh += 1; }
 
-        // Limites de la journée
         if (nh < 6) { nh = 6; nm = 0; }
         if (nh >= 23) { nh = 22; nm = 45; }
         snappedStart = `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
       }
     }
 
-    // AJUSTEMENT AUTOMATIQUE DE LA FIN (+15 min minimum)
     let newEnd = formData.end_time;
     const [sh, sm] = snappedStart.split(':').map(Number);
     const [eh, em] = newEnd.split(':').map(Number);
@@ -170,25 +160,21 @@ export default function CalendarPage() {
       newEnd = addMinutesToTimeStr(snappedStart, 15);
     }
     
-    // On ne dépasse pas 23h
     if (newEnd > "23:00") newEnd = "23:00";
     
     setFormData(prev => ({ ...prev, start_time: snappedStart, end_time: newEnd }));
   };
 
-  // GESTIONNAIRE UNIFIÉ POUR L'HEURE DE FIN (SNAPPING + MINIMUM)
   const applyEndTimeLogic = (rawTime: string) => {
     let snappedEnd = snapTime(rawTime, false);
     
     const [sh, sm] = formData.start_time.split(':').map(Number);
     const [eh, em] = snappedEnd.split(':').map(Number);
 
-    // Si on essaie de mettre une fin avant ou égale au début, on force à début + 15min
     if (eh * 60 + em <= sh * 60 + sm) {
       snappedEnd = addMinutesToTimeStr(formData.start_time, 15);
     }
     
-    // On ne dépasse pas 23h
     if (snappedEnd > "23:00") snappedEnd = "23:00";
 
     setFormData(prev => ({ ...prev, end_time: snappedEnd }));
@@ -199,12 +185,10 @@ export default function CalendarPage() {
     let h = now.getHours();
     let m = now.getMinutes();
 
-    // On arrondit à la prochaine tranche de 15 minutes
     const remainder = m % 15;
     m += (15 - remainder);
     if (m >= 60) { m = 0; h += 1; }
 
-    // On limite aux heures d'ouverture par défaut (06:00 - 22:45 max start)
     if (h < 6) { h = 6; m = 0; }
     if (h >= 23) { h = 22; m = 45; }
     
@@ -319,6 +303,18 @@ export default function CalendarPage() {
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
 
+      {/* --- LE STYLE CSS QUI REND L'HORLOGE GRISE "APPLE" SUR CHROME/EDGE --- */}
+      <style dangerouslySetInnerHTML={{__html: `
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          filter: grayscale(1) opacity(0.5);
+          cursor: pointer;
+          transition: 0.2s;
+        }
+        input[type="time"]::-webkit-calendar-picker-indicator:hover {
+          filter: grayscale(1) opacity(0.8);
+        }
+      `}} />
+
       {/* HEADER MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
         <div onClick={returnHome} className="cursor-pointer shrink-0">
@@ -361,8 +357,6 @@ export default function CalendarPage() {
         </div>
 
         <div className="p-6 flex-1 overflow-y-auto">
-          
-          {/* TEXTE D'INTRO DESKTOP */}
           <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
             <h2 className="text-sm font-black text-black mb-2 leading-snug">
               {siteContent.intro_title}
@@ -435,31 +429,28 @@ export default function CalendarPage() {
       {/* ZONE PRINCIPALE */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 relative">
         
-        {/* HEADER DE GRILLE */}
-        <header className="px-4 lg:px-8 py-4 flex items-center justify-between z-10 shrink-0 w-full gap-2">
+        {/* HEADER DE GRILLE (LA DATE REPREND LE DESIGN DE L'ADMIN) */}
+        <header className="px-4 lg:px-8 py-4 flex items-center justify-between z-10 shrink-0 w-full gap-2 lg:gap-4">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2.5 bg-white rounded-xl shadow-sm border border-gray-200">
             <CalendarIcon size={20} />
           </button>
 
           <div className="flex-1 flex justify-center lg:justify-start">
-            <div className="flex items-center justify-between w-full max-w-[240px] bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm h-12">
-              <button onClick={() => {if(!isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className="p-2 hover:bg-gray-100 rounded-xl transition">
+            <div className="flex items-center justify-between w-full max-w-[200px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm h-[48px]">
+              <button onClick={() => {if(!isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border">
                 <ChevronLeft size={18}/>
               </button>
               
-              <div 
-                onClick={() => setIsSidebarOpen(true)} 
-                className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate"
-              >
+              <div onClick={() => setIsSidebarOpen(true)} className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate">
                 <span className="text-[13px] sm:text-lg font-black capitalize truncate hidden sm:block">
                   {format(currentDate, "EEEE d MMMM", { locale: fr })}
                 </span>
-                <span className="text-[13px] sm:text-lg font-black capitalize truncate sm:hidden">
-                  {format(currentDate, "EE d MMM", { locale: fr }).replace('.', '')}
+                <span className="text-[13px] font-black capitalize truncate sm:hidden">
+                  {format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}
                 </span>
               </div>
 
-              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-xl transition">
+              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border">
                 <ChevronRight size={18}/>
               </button>
             </div>
@@ -525,7 +516,7 @@ export default function CalendarPage() {
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
-            <div className="relative h-64 bg-gray-100 flex items-center justify-center group" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+            <div className="relative h-64 sm:h-72 bg-gray-100 flex items-center justify-center group" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
               {spaceImages.length > 0 ? (
                 <>
                   <a href={spaceImages[currentImageIndex]} target="_blank" rel="noopener noreferrer" className="w-full h-full block cursor-zoom-in">
@@ -567,21 +558,22 @@ export default function CalendarPage() {
       {/* MODAL RÉSERVATION */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto border border-white/20">
             <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
               <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Demande de réservation</h2>
               <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full"><X size={20}/></button>
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
-              <div className="bg-gray-50 border rounded-xl p-3 text-center text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</div>
               
               <div>
                 <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Espace *</label>
-                <select className="w-full border rounded-xl p-3.5 bg-gray-50 font-bold" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
+                <select className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
                   {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               
+              {/* LES CHAMPS HYBRIDES (TEXTE LIBRE + HORLOGE NATIVE APPLE A 15 MIN) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label>
@@ -592,9 +584,12 @@ export default function CalendarPage() {
                     max="22:45"
                     required 
                     value={formData.start_time} 
-                    onChange={(e) => setFormData({...formData, start_time: e.target.value})} 
+                    onChange={(e) => {
+                      setFormData({...formData, start_time: e.target.value});
+                      setTimeout(() => applyStartTimeLogic(e.target.value), 0);
+                    }} 
                     onBlur={(e) => applyStartTimeLogic(e.target.value)}
-                    className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                    className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 text-gray-900 transition-all" 
                   />
                 </div>
                 <div>
@@ -606,24 +601,27 @@ export default function CalendarPage() {
                     max="23:00"
                     required 
                     value={formData.end_time} 
-                    onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
+                    onChange={(e) => {
+                      setFormData({...formData, end_time: e.target.value});
+                      setTimeout(() => applyEndTimeLogic(e.target.value), 0);
+                    }} 
                     onBlur={(e) => applyEndTimeLogic(e.target.value)}
-                    className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
+                    className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 text-gray-900 transition-all" 
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
               </div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none" /></div>
-              <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <input type="checkbox" required checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer" />
+              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none outline-none focus:ring-2 focus:ring-gray-200" /></div>
+              <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <input type="checkbox" required checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer accent-black" />
                 <label className="ml-3 text-[11px] text-gray-600 font-medium">J'accepte les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link>.</label>
               </div>
               <div className="mt-4 flex justify-center">
@@ -658,7 +656,7 @@ export default function CalendarPage() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-10 h-10 text-green-600" /></div>
             <h2 className="text-3xl font-black text-gray-900 mb-2">Reçue !</h2>
             <p className="text-gray-500 font-medium mb-8 text-sm leading-relaxed">Votre demande est en cours de validation par notre administration.</p>
-            <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
+            <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-colors">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
           </div>
         </div>
       )}
