@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { ShieldCheck, LogOut, LayoutTemplate, FileText, Save, CheckCircle2, UploadCloud, X, DoorOpen } from "lucide-react";
+import { ShieldCheck, LogOut, LayoutTemplate, FileText, Save, CheckCircle2, UploadCloud, X, DoorOpen, PlusCircle, Trash2 } from "lucide-react";
 
 // LISTE BLANCHE DES ADMINISTRATEURS
 const ADMIN_WHITELIST = [
@@ -33,7 +33,20 @@ export default function EditeurPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [uploadingSpaceId, setUploadingSpaceId] = useState<string | null>(null);
 
-  const [content, setContent] = useState({ intro_title: "", intro_paragraph: "", cgv_text: "" });
+  const [content, setContent] = useState({ 
+    intro_title: "", 
+    intro_paragraph: "", 
+    cgv_text: "",
+    landing_title: "",
+    block1_title: "",
+    block1_text: "",
+    block2_title: "",
+    block2_text: "",
+    block3_title: "",
+    block3_text: "",
+    faq_json: [] as { question: string, answer: string }[]
+  });
+  
   const [spaces, setSpaces] = useState<any[]>([]);
 
   useEffect(() => {
@@ -68,7 +81,10 @@ export default function EditeurPage() {
     // Récupération des textes
     const { data: contentData } = await supabase.from("site_content").select("*").eq("id", 1).single();
     if (contentData) {
-      setContent(contentData);
+      setContent({
+        ...contentData,
+        faq_json: contentData.faq_json || [] // S'assurer que faq_json est un tableau
+      });
     }
 
     // Récupération et tri des salles
@@ -77,7 +93,6 @@ export default function EditeurPage() {
       const sorted = spacesData.sort((a, b) => {
         let indexA = ROOM_ORDER.indexOf(a.name);
         let indexB = ROOM_ORDER.indexOf(b.name);
-        // Si une salle n'est pas dans la liste, on la met à la fin
         if (indexA === -1) indexA = 99; 
         if (indexB === -1) indexB = 99;
         return indexA - indexB;
@@ -91,7 +106,15 @@ export default function EditeurPage() {
     const { error } = await supabase.from("site_content").update({
       intro_title: content.intro_title,
       intro_paragraph: content.intro_paragraph,
-      cgv_text: content.cgv_text
+      cgv_text: content.cgv_text,
+      landing_title: content.landing_title,
+      block1_title: content.block1_title,
+      block1_text: content.block1_text,
+      block2_title: content.block2_title,
+      block2_text: content.block2_text,
+      block3_title: content.block3_title,
+      block3_text: content.block3_text,
+      faq_json: content.faq_json
     }).eq("id", 1);
 
     if (!error) {
@@ -167,6 +190,26 @@ export default function EditeurPage() {
     const newUrlsArray = urlsArray.filter(u => u !== urlToRemove);
     
     updateSpaceState(spaceId, 'image_url', newUrlsArray.join(', '));
+  };
+
+  // --- GESTION DE LA FAQ ---
+  const addFaqItem = () => {
+    setContent({
+      ...content,
+      faq_json: [...content.faq_json, { question: "", answer: "" }]
+    });
+  };
+
+  const updateFaqItem = (index: number, field: 'question' | 'answer', value: string) => {
+    const newFaq = [...content.faq_json];
+    newFaq[index][field] = value;
+    setContent({ ...content, faq_json: newFaq });
+  };
+
+  const removeFaqItem = (index: number) => {
+    const newFaq = [...content.faq_json];
+    newFaq.splice(index, 1);
+    setContent({ ...content, faq_json: newFaq });
   };
 
   const returnHome = () => {
@@ -246,7 +289,7 @@ export default function EditeurPage() {
       {/* ZONE DE CONTENU PRINCIPAL */}
       <main className="flex-1 overflow-y-auto relative">
         
-        {/* En-tête mobile (AVEC LOGO ET SOUS-TITRE INDIGO) */}
+        {/* En-tête mobile */}
         <div className="md:hidden bg-white px-4 py-3 border-b border-gray-200 flex justify-between items-center sticky top-0 z-20 shadow-sm shrink-0">
           
           <div className="flex items-center gap-3">
@@ -292,14 +335,56 @@ export default function EditeurPage() {
               
               <form onSubmit={handleSaveContent} className="space-y-8">
                 
+                {/* BLOC : LANDING PAGE (NOUVEAU) */}
                 <div className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-gray-200">
                   <h3 className="font-black uppercase text-xs tracking-widest text-indigo-500 mb-6 flex items-center">
-                    <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">1</span> Page d'accueil
+                    <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">1</span> Page d'accueil (Landing Page)
                   </h3>
                   
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-2">Titre principal (Gros titre)</label>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">Sous-titre (Header)</label>
+                      <input 
+                        type="text" 
+                        value={content.landing_title || ""} 
+                        onChange={(e) => setContent({...content, landing_title: e.target.value})} 
+                        className="w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                        placeholder="La plateforme de réservation des espaces..."
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Bloc 1 */}
+                      <div className="border border-gray-200 p-4 rounded-xl bg-gray-50">
+                         <h4 className="font-bold text-xs mb-3 flex items-center"><span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mr-2 text-[8px]">1</span> Bloc 1</h4>
+                         <input type="text" value={content.block1_title || ""} onChange={(e) => setContent({...content, block1_title: e.target.value})} className="w-full mb-2 border border-gray-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Titre (ex: Pour la commu)" />
+                         <textarea value={content.block1_text || ""} onChange={(e) => setContent({...content, block1_text: e.target.value})} className="w-full border border-gray-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 h-16 resize-none" placeholder="Texte descriptif..." />
+                      </div>
+                      {/* Bloc 2 */}
+                      <div className="border border-gray-200 p-4 rounded-xl bg-gray-50">
+                         <h4 className="font-bold text-xs mb-3 flex items-center"><span className="w-4 h-4 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mr-2 text-[8px]">2</span> Bloc 2</h4>
+                         <input type="text" value={content.block2_title || ""} onChange={(e) => setContent({...content, block2_title: e.target.value})} className="w-full mb-2 border border-gray-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Titre (ex: Nos activités)" />
+                         <textarea value={content.block2_text || ""} onChange={(e) => setContent({...content, block2_text: e.target.value})} className="w-full border border-gray-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 h-16 resize-none" placeholder="Texte descriptif..." />
+                      </div>
+                      {/* Bloc 3 */}
+                      <div className="border border-gray-200 p-4 rounded-xl bg-gray-50">
+                         <h4 className="font-bold text-xs mb-3 flex items-center"><span className="w-4 h-4 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mr-2 text-[8px]">3</span> Bloc 3</h4>
+                         <input type="text" value={content.block3_title || ""} onChange={(e) => setContent({...content, block3_title: e.target.value})} className="w-full mb-2 border border-gray-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Titre (ex: Validation)" />
+                         <textarea value={content.block3_text || ""} onChange={(e) => setContent({...content, block3_text: e.target.value})} className="w-full border border-gray-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 h-16 resize-none" placeholder="Texte descriptif..." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BLOC : PAGE CALENDRIER */}
+                <div className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-gray-200">
+                  <h3 className="font-black uppercase text-xs tracking-widest text-indigo-500 mb-6 flex items-center">
+                    <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">2</span> Page Calendrier (Info Sidebar)
+                  </h3>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">Titre du bloc d'information</label>
                       <input 
                         type="text" 
                         required 
@@ -309,7 +394,7 @@ export default function EditeurPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-2">Paragraphe d'explication</label>
+                      <label className="block text-xs font-bold text-gray-700 mb-2">Texte d'explication</label>
                       <textarea 
                         required 
                         value={content.intro_paragraph} 
@@ -320,10 +405,56 @@ export default function EditeurPage() {
                   </div>
                 </div>
 
+                {/* BLOC : FAQ (NOUVEAU) */}
+                <div className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-gray-200">
+                  <h3 className="font-black uppercase text-xs tracking-widest text-indigo-500 mb-6 flex items-center">
+                    <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">3</span> Foire Aux Questions (FAQ)
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {content.faq_json.map((faq, index) => (
+                      <div key={index} className="flex flex-col md:flex-row gap-3 items-start border border-gray-200 p-4 rounded-xl bg-gray-50">
+                        <div className="flex-1 w-full space-y-3">
+                          <input 
+                            type="text" 
+                            value={faq.question} 
+                            onChange={(e) => updateFaqItem(index, 'question', e.target.value)} 
+                            placeholder="Question" 
+                            className="w-full border border-gray-200 rounded-lg p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" 
+                          />
+                          <textarea 
+                            value={faq.answer} 
+                            onChange={(e) => updateFaqItem(index, 'answer', e.target.value)} 
+                            placeholder="Réponse" 
+                            className="w-full border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 h-20 resize-none" 
+                          />
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => removeFaqItem(index)} 
+                          className="bg-white border border-red-200 text-red-500 p-3 rounded-xl hover:bg-red-50 transition-colors shrink-0"
+                          title="Supprimer cette question"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    <button 
+                      type="button" 
+                      onClick={addFaqItem} 
+                      className="w-full border-2 border-dashed border-gray-300 text-gray-500 py-4 rounded-xl font-bold flex items-center justify-center hover:bg-gray-50 transition-colors text-sm"
+                    >
+                      <PlusCircle size={18} className="mr-2" /> Ajouter une question
+                    </button>
+                  </div>
+                </div>
+
+                {/* BLOC : CGV */}
                 <div className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-gray-200">
                   <div className="flex justify-between items-start mb-6">
                     <h3 className="font-black uppercase text-xs tracking-widest text-indigo-500 flex items-center">
-                      <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">2</span> Conditions Générales (CGV)
+                      <span className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center mr-3">4</span> Conditions Générales (CGV)
                     </h3>
                     <span className="text-[10px] bg-gray-100 text-gray-500 px-3 py-1 rounded-lg font-bold uppercase tracking-wider">Date auto.</span>
                   </div>
@@ -341,7 +472,7 @@ export default function EditeurPage() {
 
                 <button 
                   type="submit" 
-                  className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-5 rounded-2xl hover:scale-[1.02] transition-transform flex items-center justify-center shadow-xl shadow-indigo-600/20 text-sm"
+                  className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-5 rounded-2xl hover:scale-[1.02] transition-transform flex items-center justify-center shadow-xl shadow-indigo-600/20 text-sm sticky bottom-4 z-30"
                 >
                   <Save size={20} className="mr-3" /> Enregistrer toutes les modifications de texte
                 </button>
