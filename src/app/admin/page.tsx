@@ -2,106 +2,115 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { 
-  format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
-  eachDayOfInterval, isSameMonth, isSameDay, startOfDay, addMonths, subMonths
-} from "date-fns";
+import { format, startOfDay, addDays, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { LogOut, ChevronLeft, ChevronRight, X, Trash2, CheckCircle2, Edit3, Search, ShieldCheck, Clock, Save, Lock, AlertTriangle, Calendar as CalendarIcon, DoorOpen } from "lucide-react";
-
-const ADMIN_WHITELIST = ["jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"];
+import { 
+  Lock, LogOut, CheckCircle2, XCircle, Trash2, Edit, Save, 
+  CalendarIcon, ChevronLeft, ChevronRight, X, AlertTriangle, Plus 
+} from "lucide-react";
+import Link from "next/link";
 
 const ROOM_ORDER = [
-  "Conférence 1",
-  "Conférence 2",
-  "Social Stairs",
-  "Bureaux",
-  "Grande salle",
-  "Enfance",
-  "Espace canapés"
+  "Conférence 1", "Conférence 2", "Espace canapés", 
+  "Social Stairs", "Bureaux", "Grande salle", "Enfance"
 ];
 
-export default function AdminPage() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  
-  const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
-  const [currentMonthView, setCurrentMonthView] = useState(startOfMonth(new Date()));
-  const [searchTerm, setSearchTerm] = useState("");
-  
-  const [spaces, setSpaces] = useState<any[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [adminMessage, setAdminMessage] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  const [showBlockModal, setShowBlockModal] = useState(false);
-  const [blockSuccessMessage, setBlockSuccessMessage] = useState(""); 
-  const [recurrenceOption, setRecurrenceOption] = useState("none");
-  
-  const [conflictModal, setConflictModal] = useState(false);
-  const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
-  const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
-  const [errorMessage, setErrorMessage] = useState("");
-  
-  const [editData, setEditData] = useState({ user_name: "", space_id: "", reason: "", start_time: "", end_time: "" });
-
-  const today = startOfDay(new Date());
-
-  useEffect(() => {
-    const getSession = async () => { const { data: { session } } = await supabase.auth.getSession(); handleAuth(session?.user || null); };
-    getSession();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => handleAuth(session?.user || null));
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleAuth = (user: any) => {
-    if (user && ADMIN_WHITELIST.includes(user.email!)) setUser(user);
-    else if (user) { supabase.auth.signOut(); alert("Accès refusé."); }
-    else setUser(null);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    if (user) {
-      const fetchSpaces = async () => {
-        const { data } = await supabase.from("spaces").select("*");
-        if (data) {
-          const sorted = data.sort((a, b) => {
-            let indexA = ROOM_ORDER.indexOf(a.name);
-            let indexB = ROOM_ORDER.indexOf(b.name);
-            if (indexA === -1) indexA = 99; 
-            if (indexB === -1) indexB = 99;
-            return indexA - indexB;
-          });
-          setSpaces(sorted);
-        }
-      };
-      fetchSpaces();
-      fetchBookings();
+// GÉNÉRATEUR D'HORAIRES (Tranches de 15 min de 06:00 à 23:00)
+const generateTimeOptions = (minTimeStr = "06:00", isEnd = false) => {
+  const options = [];
+  for (let h = 6; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 23 && m > 0) continue;
+      const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      if (timeStr < minTimeStr) continue;
+      if (isEnd && timeStr === minTimeStr) continue;
+      options.push(timeStr);
     }
-  }, [user]);
+  }
+  return options;
+};
 
-  const fetchBookings = async () => {
-    const { data } = await supabase.from("bookings").select("*, spaces(name, color)");
-    if (data) setBookings(data);
+const addMinutesToTimeStr = (timeStr: string, minsToAdd: number) => {
+  const [h, m] = timeStr.split(':').map(Number);
+  const date = new Date(); 
+  date.setHours(h, m + minsToAdd, 0, 0);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
+export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+  const [activeTab, setActiveTab] = useState<'requests'|'blocks'|'content'>('requests');
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [spaces, setSpaces] = useState<any[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [adminMessage, setAdminMessage] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState<any>({});
+  
+  // Multi-blocage state
+  const [blockData, setBlockData] = useState({ 
+    title: "Bloqué (Maintenance/Event)", 
+    start_time: "08:00", 
+    end_time: "12:00" 
+  });
+  const [selectedSpacesToBlock, setSelectedSpacesToBlock] = useState<string[]>([]);
+  const [blockDate, setBlockDate] = useState(new Date());
+
+  const [siteContent, setSiteContent] = useState({ intro_title: "", intro_paragraph: "", cgv_text: "" });
+  const [isSavingContent, setIsSavingContent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const checkAuth = async () => {
+    const { data } = await supabase.from('admin_auth').select('password').eq('id', 1).single();
+    if (data && data.password === password) { 
+      setIsAuthenticated(true); 
+      localStorage.setItem('admin_auth', 'true'); 
+    } else { 
+      alert("Mot de passe incorrect"); 
+    }
   };
 
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { 
-        setSelectedBooking(null); setIsEditing(false); setShowBlockModal(false); 
-        setBlockSuccessMessage(""); setIsSidebarOpen(false); setConflictModal(false);
-      }
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
+    if (localStorage.getItem('admin_auth') === 'true') setIsAuthenticated(true);
+    fetchData();
   }, []);
 
-  const openBookingModal = (b: any) => {
-    setSelectedBooking(b); setIsEditing(false); setAdminMessage("");
-    setEditData({ user_name: b.user_name, space_id: b.space_id, reason: b.reason, start_time: format(new Date(b.start_time), "HH:mm"), end_time: format(new Date(b.end_time), "HH:mm") });
+  const fetchData = async () => {
+    const { data: bData } = await supabase.from("bookings").select("*, spaces(*)").order("start_time", { ascending: true });
+    if (bData) setBookings(bData);
+    
+    const { data: sData } = await supabase.from("spaces").select("*");
+    if (sData) {
+      setSpaces(sData.sort((a, b) => (ROOM_ORDER.indexOf(a.name) === -1 ? 99 : ROOM_ORDER.indexOf(a.name)) - (ROOM_ORDER.indexOf(b.name) === -1 ? 99 : ROOM_ORDER.indexOf(b.name))));
+    }
+    
+    const { data: cData } = await supabase.from("site_content").select("*").eq("id", 1).single();
+    if (cData) setSiteContent(cData);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const st = new Date(selectedBooking.start_time); 
+    const [sh, sm] = editData.start_time.split(':'); 
+    st.setHours(parseInt(sh), parseInt(sm), 0);
+    
+    const et = new Date(selectedBooking.end_time); 
+    const [eh, em] = editData.end_time.split(':'); 
+    et.setHours(parseInt(eh), parseInt(em), 0);
+
+    const { error } = await supabase.from("bookings").update({ 
+      space_id: editData.space_id, 
+      user_name: editData.user_name, 
+      reason: editData.reason, 
+      start_time: st.toISOString(), 
+      end_time: et.toISOString(), 
+      status: 'confirmed' 
+    }).eq("id", selectedBooking.id);
+
+    if (error) { setErrorMessage("Le créneau chevauche une autre réservation validée."); return; }
+    
+    setSelectedBooking(null); setIsEditing(false); fetchData();
   };
 
   const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
@@ -110,633 +119,308 @@ export default function AdminPage() {
 
     if (status === 'rejected') {
       const { error } = await supabase.from("bookings").delete().eq("id", id);
-      if (!error) {
-        await notifyUser('DELETED', booking, adminMessage);
-        
-        if (booking.google_event_id) {
-          fetch('/api/calendar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'delete', booking })
-          }).catch(err => console.error("Erreur Calendar:", err));
-        }
-
-        setBookings(prev => prev.filter(b => b.id !== id));
-        setSelectedBooking(null);
-      } else {
-        setErrorMessage("Erreur lors de la suppression : " + error.message);
-      }
+      if (!error) { fetchData(); setSelectedBooking(null); }
       return;
     }
 
     const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
+    if (error) { setErrorMessage("Conflit d'horaire avec un autre événement."); return; }
     
-    // NOUVEAU : GESTION DES ERREURS
-    if (error) {
-      if (error.message.includes("prevent_double_booking")) {
-        setErrorMessage("Ce créneau chevauche une autre réservation ou un blocage déjà validé pour cette salle. Vérifiez bien les horaires (même une minute en commun suffit à bloquer !).");
-      } else {
-        setErrorMessage("Une erreur est survenue : " + error.message);
-      }
-      return;
-    }
-
-    await notifyUser('CONFIRMED', booking, adminMessage);
-    
-    if (booking.google_event_id) {
-      fetch('/api/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'update', 
-          booking: { 
-            ...booking, 
-            status: 'confirmed',
-            space_name: booking.spaces?.name 
-          } 
-        })
-      }).catch(err => console.error("Erreur Calendar:", err));
-    }
-
-    setSelectedBooking(null); 
-    fetchBookings();
+    setSelectedBooking(null); fetchData();
   };
 
-  const handleEditSave = async (e: React.FormEvent) => {
+  const createMultiBlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    const st = new Date(selectedBooking.start_time); const [sh, sm] = editData.start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
-    const et = new Date(selectedBooking.end_time); const [eh, em] = editData.end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
-
-    const { error } = await supabase.from("bookings").update({
-      space_id: editData.space_id, user_name: editData.user_name, reason: editData.reason, start_time: st.toISOString(), end_time: et.toISOString(), status: 'confirmed'
-    }).eq("id", selectedBooking.id);
-
-    // NOUVEAU : GESTION DES ERREURS
-    if (error) {
-      if (error.message.includes("prevent_double_booking")) {
-        setErrorMessage("Les horaires modifiés créent un conflit avec un autre événement déjà validé pour cette salle.");
-      } else {
-        setErrorMessage("Erreur de modification : " + error.message);
-      }
-      return;
+    if (selectedSpacesToBlock.length === 0) { 
+      setErrorMessage("Veuillez sélectionner au moins une salle."); 
+      return; 
     }
 
-    const spaceObj = spaces.find(s => s.id === editData.space_id);
-    await notifyUser('MODIFIED', { ...selectedBooking, space_id: editData.space_id, start_time: st.toISOString(), end_time: et.toISOString(), reason: editData.reason }, adminMessage);
-    
-    if (selectedBooking.google_event_id) {
-      fetch('/api/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: 'update', 
-          booking: { 
-            ...selectedBooking, 
-            status: 'confirmed', 
-            start_time: st.toISOString(), 
-            end_time: et.toISOString(),
-            space_name: spaceObj?.name
-          } 
-        })
-      }).catch(err => console.error("Erreur Calendar Update:", err));
-    }
+    const st = new Date(blockDate); const [sh, sm] = blockData.start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
+    const et = new Date(blockDate); const [eh, em] = blockData.end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
 
-    setSelectedBooking(null); setIsEditing(false); fetchBookings();
+    if (st < new Date()) { setErrorMessage("Impossible de bloquer dans le passé."); return; }
+
+    const blocksToInsert = selectedSpacesToBlock.map(spaceId => ({
+      space_id: spaceId, 
+      user_name: "ADMIN", 
+      user_email: "admin@eglisehome.com", 
+      reason: blockData.title, 
+      status: 'confirmed', 
+      start_time: st.toISOString(), 
+      end_time: et.toISOString(), 
+      is_block: true
+    }));
+
+    const { error } = await supabase.from("bookings").insert(blocksToInsert);
+    if (error) { setErrorMessage("Certaines salles sélectionnées sont déjà réservées à ces heures."); return; }
+
+    setBlockData({ title: "Bloqué (Maintenance/Event)", start_time: "08:00", end_time: "12:00" });
+    setSelectedSpacesToBlock([]);
+    alert("Bloquage réussi !");
+    fetchData();
   };
 
-  const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    if(!booking.user_email || booking.user_email === user?.email) return; 
-    
-    const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
-    await fetch('/api/send-email', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: type, user_name: booking.user_name, user_email: booking.user_email, booking_id: booking.id,
-        space_name: spaces.find(s => s.id === booking.space_id)?.name || booking.spaces?.name, space_color: sColor,
-        start_time: booking.start_time, end_time: booking.end_time, reason: booking.reason, admin_message: adminMsg
-      })
-    });
-  };
-
-  const generateBlocks = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const space_id = fd.get('space_id') as string;
-    const start_date_str = fd.get('start_date') as string;
-    const start_time = fd.get('start_time') as string;
-    const end_time = fd.get('end_time') as string;
-    const recurrence = fd.get('recurrence') as string;
-    const end_recurrence_str = fd.get('end_recurrence') as string;
-    const block_name = fd.get('block_name') as string || "🔐 Blocage Admin";
-    
-    if(!space_id || !start_date_str || !start_time || !end_time) return;
-
-    let currentDay = new Date(start_date_str);
-    const endRecDate = recurrence === "none" ? currentDay : new Date(end_recurrence_str);
-    const blocks: any[] = []; 
-    let limit = 0; 
-
-    while (currentDay <= endRecDate && limit < 365) {
-      const st = new Date(currentDay); const [sh, sm] = start_time.split(':'); st.setHours(parseInt(sh), parseInt(sm), 0);
-      const et = new Date(currentDay); const [eh, em] = end_time.split(':'); et.setHours(parseInt(eh), parseInt(em), 0);
-      
-      blocks.push({
-        space_id, 
-        user_name: block_name, 
-        user_email: user?.email || "admin@home.com",
-        user_phone: "-",
-        reason: "Créneau bloqué automatiquement par l'administration.",
-        start_time: st.toISOString(), 
-        end_time: et.toISOString(), 
-        status: 'confirmed'
-      });
-
-      if (recurrence === 'daily') currentDay = addDays(currentDay, 1);
-      else if (recurrence === 'weekly') currentDay = addDays(currentDay, 7);
-      else if (recurrence === 'monthly') currentDay = addMonths(currentDay, 1);
-      else break;
-      limit++;
-    }
-
-    if (blocks.length > 0) {
-      const globalStart = blocks[0].start_time;
-      const globalEnd = blocks[blocks.length - 1].end_time;
-
-      const { data: existing } = await supabase.from("bookings").select("*")
-        .eq("space_id", space_id)
-        .gte("end_time", globalStart)
-        .lte("start_time", globalEnd);
-
-      if (existing && existing.length > 0) {
-        const overlaps = existing.filter(b => {
-          return blocks.some(block => {
-            return new Date(block.start_time).getTime() < new Date(b.end_time).getTime() && 
-                   new Date(block.end_time).getTime() > new Date(b.start_time).getTime();
-          });
-        });
-
-        if (overlaps.length > 0) {
-          setConflictingBookings(overlaps);
-          setPendingBlocks(blocks);
-          setShowBlockModal(false);
-          setConflictModal(true);
-          return; 
-        }
-      }
-    }
-
-    executeBlockInsertion(blocks);
-  };
-
-  const executeBlockInsertion = async (blocksToInsert: any[]) => {
-    const { data: insertedBlocks, error } = await supabase.from("bookings").insert(blocksToInsert).select();
-    
-    if(error) {
-      alert("Erreur lors de la création des blocs.");
-    } else { 
-      if (insertedBlocks && insertedBlocks.length > 0) {
-        insertedBlocks.forEach(block => {
-          const spaceObj = spaces.find(s => s.id === block.space_id);
-          fetch('/api/calendar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              action: 'create', 
-              booking: { ...block, space_name: spaceObj?.name, space_color: spaceObj?.color } 
-            })
-          })
-          .then(res => res.json())
-          .then(async (calData) => {
-            if (calData.google_event_id) {
-              await supabase.from("bookings").update({ google_event_id: calData.google_event_id }).eq("id", block.id);
-            }
-          })
-          .catch(err => console.error("Erreur Calendar Block Creation:", err));
-        });
-      }
-
-      setConflictModal(false);
-      setShowBlockModal(false); 
-      setBlockSuccessMessage(`${blocksToInsert.length} créneau(x) bloqué(s) avec succès !`);
-      fetchBookings(); 
+  const toggleSpaceBlock = (spaceId: string) => {
+    if (selectedSpacesToBlock.includes(spaceId)) {
+      setSelectedSpacesToBlock(prev => prev.filter(id => id !== spaceId));
+    } else {
+      setSelectedSpacesToBlock(prev => [...prev, spaceId]);
     }
   };
 
-  const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
+  const saveContent = async () => {
+    setIsSavingContent(true);
+    await supabase.from("site_content").update(siteContent).eq("id", 1);
+    setIsSavingContent(false); 
+    alert("Contenu mis à jour !");
+  };
 
-  const filteredBookings = bookings.filter(b => (b.user_name + (b.user_email||"") + b.reason + (b.spaces?.name || "")).toLowerCase().includes(searchTerm.toLowerCase()));
-  const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
+  const deleteBooking = async (id: string) => {
+    if (confirm("Supprimer ce blocage ou cette réservation ?")) {
+      await supabase.from("bookings").delete().eq("id", id); 
+      fetchData();
+    }
+  };
 
-  const monthStart = startOfMonth(currentMonthView); const monthEnd = endOfMonth(monthStart);
-  const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(monthEnd, { weekStartsOn: 1 }) });
-  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
-
-  if (loading) return null;
-  if (!user) return (
+  if (!isAuthenticated) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white p-10 rounded-3xl shadow-xl border max-w-md w-full text-center font-sans">
-        <ShieldCheck className="w-16 h-16 mx-auto mb-6 text-black" />
-        <h1 className="text-3xl font-black mb-8">Admin Login</h1>
-        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + '/admin', queryParams: { prompt: 'select_account' } }})} className="w-full bg-black text-white py-4 rounded-2xl font-bold flex items-center justify-center hover:scale-[1.02] transition-transform">Continuer avec Google</button>
+      <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm text-center border border-gray-100">
+        <div className="w-16 h-16 bg-black text-white rounded-2xl mx-auto flex items-center justify-center mb-6"><Lock size={28} /></div>
+        <h1 className="text-2xl font-black uppercase mb-6">Accès Restreint</h1>
+        <form onSubmit={(e) => { e.preventDefault(); checkAuth(); }}>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mot de passe" className="w-full border rounded-xl p-4 bg-gray-50 mb-4 text-center font-bold tracking-widest focus:border-black outline-none transition-colors" />
+          <button type="submit" className="w-full bg-black text-white font-black uppercase py-4 rounded-xl hover:bg-gray-800 transition">Déverrouiller</button>
+        </form>
       </div>
     </div>
   );
 
   return (
-    <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
-      
-      {/* HEADER HAUT POUR MOBILE */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
-        <div onClick={returnHome} className="cursor-pointer shrink-0">
-          <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
+    <div className="min-h-screen bg-gray-50 font-sans pb-20">
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-3"><div className="w-8 h-8 bg-black text-white rounded-lg flex items-center justify-center font-black">H</div><span className="font-black uppercase tracking-widest text-sm hidden sm:inline">Administration</span></div>
+        <div className="flex bg-gray-100 rounded-xl p-1">
+          <button onClick={() => setActiveTab('requests')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition ${activeTab === 'requests' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-black'}`}>Demandes</button>
+          <button onClick={() => setActiveTab('blocks')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition ${activeTab === 'blocks' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-black'}`}>Bloquer</button>
+          <button onClick={() => setActiveTab('content')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition ${activeTab === 'content' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-black'}`}>CMS</button>
         </div>
-        <div className="w-[1px] h-6 bg-gray-300 shrink-0"></div>
-        <div className="flex flex-col justify-center items-center shrink-0">
-          <div className="flex items-center space-x-1.5">
-            <DoorOpen size={14} className="text-gray-900" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
-              Réservation
-            </span>
-          </div>
-          <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600 mt-0.5">Administrateur</span>
-        </div>
-      </div>
+      </header>
 
-      {/* SIDEBAR ADMIN DESKTOP */}
-      <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
-          <div onClick={returnHome} className="cursor-pointer group">
-            <div className="group-hover:scale-105 transition-transform">
-              <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
-            </div>
-          </div>
-          
-          <div className="inline-flex flex-col items-center justify-center bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg w-max">
-             <div className="flex items-center space-x-2">
-               <DoorOpen size={14} className="text-gray-900" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
-                 Réservation
-               </span>
-             </div>
-             <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600 mt-1">Panneau admin</span>
-          </div>
-        </div>
-
-        <div className="p-6 flex-1 overflow-y-auto flex flex-col">
-          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6 shrink-0">
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-              <div className="flex space-x-1">
-                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md"><ChevronLeft size={16}/></button>
-                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md"><ChevronRight size={16}/></button>
-              </div>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((day, i) => {
-                const isSelected = isSameDay(day, currentDate);
-                return (
-                  <div key={i} onClick={() => {setCurrentDate(day); setIsSidebarOpen(false);}} 
-                    className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer active:scale-90 
-                    ${isSelected ? 'bg-black text-white font-bold active:bg-gray-800' : 'hover:bg-gray-200 active:bg-gray-300'} 
-                    ${!isSameMonth(day, currentMonthView) && !isSelected ? 'text-gray-400' : ''}`}>{format(day, "d")}</div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex-1">
-            <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">En attente ({pendingBookings.length})</h2>
-            <div className="space-y-3">
-              {pendingBookings.map(b => (
-                <div key={b.id} onClick={() => openBookingModal(b)} className="p-4 rounded-2xl border border-blue-100 bg-blue-50/50 hover:border-blue-300 cursor-pointer transition-all">
-                  <span className="text-[9px] font-black px-2 py-1 rounded bg-blue-100 text-blue-700 mb-2 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
-                  <p className="font-bold text-sm">{b.user_name}</p>
-                  <p className="text-xs text-gray-500 mt-1 flex items-center"><Clock size={12} className="mr-1"/> {format(new Date(b.start_time), "d MMM HH:mm", {locale:fr})}</p>
-                </div>
-              ))}
-              {pendingBookings.length === 0 && <p className="text-xs text-gray-400 italic">Aucune demande en attente.</p>}
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* MODAL CALENDRIER ADMIN (MOBILE UNIQUEMENT) */}
-      {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-                <div className="flex space-x-1">
-                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronRight className="w-4 h-4" /></button>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d => <div key={d} className="text-[10px] font-bold text-gray-400">{d}</div>)}</div>
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, i) => {
-                  const isSelected = isSameDay(day, currentDate);
-                  return (
-                    <div key={i} onClick={() => {setCurrentDate(day); setIsSidebarOpen(false);}} 
-                      className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer active:scale-90 
-                      ${isSelected ? 'bg-black text-white font-bold active:bg-gray-800' : 'hover:bg-gray-200 active:bg-gray-300'} 
-                      ${!isSameMonth(day, currentMonthView) && !isSelected ? 'text-gray-400' : ''}`}>{format(day, "d")}</div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative bg-gray-50">
+      <main className="max-w-5xl mx-auto mt-8 px-4">
         
-        {/* HEADER DE NAVIGATION ADMIN SANS FOND BLANC */}
-        <header className="px-3 lg:px-8 py-3 lg:py-5 flex items-center justify-between z-40 flex-shrink-0 w-full gap-2 lg:gap-4">
-          
-          <div className="lg:hidden flex-shrink-0 w-[80px]">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-black bg-white rounded-xl shadow-sm border border-gray-200 hover:opacity-70 transition-opacity">
-              <CalendarIcon size={20} />
-            </button>
-          </div>
-
-          <div className="flex-1 flex justify-center lg:justify-start">
-            <div className="flex items-center justify-between w-full max-w-[200px] sm:max-w-[260px] bg-white p-1 sm:p-1.5 lg:p-2 rounded-xl sm:rounded-2xl border border-gray-200 shadow-sm h-[48px]">
-              <button onClick={() => setCurrentDate(subDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronLeft size={18}/></button>
-              <div className="cursor-pointer hover:opacity-70 transition-opacity flex-1 text-center px-0.5 truncate" onClick={() => setIsSidebarOpen(true)}>
-                 <span className="text-[13px] sm:text-lg font-black capitalize truncate">
-                    <span className="hidden sm:inline">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-                    <span className="sm:hidden">{format(currentDate, "EEE d MMM", { locale: fr }).replace('.', '')}</span>
-                 </span>
+        {/* ONGLET DEMANDES */}
+        {activeTab === 'requests' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bookings.filter(b => !b.is_block).map(b => (
+              <div key={b.id} onClick={() => { setSelectedBooking(b); setIsEditing(false); setAdminMessage(""); }} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition">
+                <div className="flex justify-between items-start mb-4">
+                  <div className={`px-3 py-1 rounded-md text-[10px] font-black uppercase ${b.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{b.status === 'pending' ? 'En attente' : 'Validé'}</div>
+                  <div className="text-right"><div className="text-[10px] font-bold text-gray-400 uppercase">{format(new Date(b.start_time), "d MMM", { locale: fr })}</div><div className="text-xs font-black text-gray-900">{format(new Date(b.start_time), "HH:mm")} - {format(new Date(b.end_time), "HH:mm")}</div></div>
+                </div>
+                <h3 className="font-black text-lg text-gray-900 truncate">{b.user_name}</h3>
+                <div className="text-xs font-bold text-gray-500 mt-1 uppercase" style={{ color: b.spaces?.color }}>{b.spaces?.name}</div>
               </div>
-              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-1.5 sm:p-2 bg-gray-50 rounded-lg sm:rounded-xl hover:bg-gray-200 border"><ChevronRight size={18}/></button>
-            </div>
+            ))}
           </div>
+        )}
 
-          <div className="flex-shrink-0 w-[80px] lg:w-auto flex items-center justify-end gap-2 lg:gap-4">
-            
-            <div className="relative hidden lg:block">
-              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-0 bg-white rounded-2xl text-sm border border-gray-200 w-64 focus:ring-2 focus:ring-black outline-none font-bold transition-all shadow-sm h-[48px]" />
-            </div>
-            
-            <button onClick={() => setShowBlockModal(true)} className="hidden lg:flex h-[48px] px-5 bg-indigo-50 text-indigo-700 rounded-2xl hover:bg-indigo-100 font-bold items-center justify-center transition-colors border border-indigo-100 shadow-sm text-xs leading-snug text-left">
-              <Lock size={18} className="mr-3"/>
-              <span>Bloquer des<br/>créneaux</span>
-            </button>
+        {/* ONGLET BLOQUER (MULTI-SALLES ET CHIPS) */}
+        {activeTab === 'blocks' && (
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Lock size={20}/> Bloquer des créneaux</h2>
+            <form onSubmit={createMultiBlock} className="space-y-6">
+              
+              <div className="flex items-center justify-between w-full sm:max-w-xs bg-gray-50 p-2 rounded-xl border border-gray-200">
+                <button type="button" onClick={() => setBlockDate(subDays(blockDate, 1))} className="p-2 hover:bg-gray-200 rounded-lg"><ChevronLeft size={18}/></button>
+                <span className="font-black capitalize text-sm">{format(blockDate, "EEEE d MMMM", { locale: fr })}</span>
+                <button type="button" onClick={() => setBlockDate(addDays(blockDate, 1))} className="p-2 hover:bg-gray-200 rounded-lg"><ChevronRight size={18}/></button>
+              </div>
 
-            <button onClick={() => supabase.auth.signOut()} className="hidden lg:flex h-[48px] px-5 bg-red-50 text-red-600 rounded-2xl hover:bg-red-100 font-bold items-center text-sm transition-colors border border-red-100 shadow-sm">
-              <LogOut size={18} className="mr-3"/> Déconnexion
-            </button>
+              {/* HAUTEURS ALIGNÉES h-[52px] */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Titre (Motif)</label>
+                  <input type="text" required value={blockData.title} onChange={e => setBlockData({...blockData, title: e.target.value})} className="w-full h-[52px] border rounded-xl px-4 bg-gray-50 font-bold" />
+                </div>
+                <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Début</label>
+                    <select value={blockData.start_time} onChange={e => setBlockData({...blockData, start_time: e.target.value, end_time: addMinutesToTimeStr(e.target.value, 15)})} className="w-full h-[52px] border rounded-xl px-4 bg-gray-50 font-bold cursor-pointer">
+                      {generateTimeOptions().map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Fin</label>
+                    <select value={blockData.end_time} onChange={e => setBlockData({...blockData, end_time: e.target.value})} className="w-full h-[52px] border rounded-xl px-4 bg-gray-50 font-bold cursor-pointer">
+                      {generateTimeOptions(blockData.start_time, true).map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
 
-            {/* Boutons Mobile */}
-            <button onClick={() => setShowBlockModal(true)} className="lg:hidden h-[48px] w-[48px] bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 flex items-center justify-center shadow-sm">
-              <Lock size={20}/>
-            </button>
-            <button onClick={() => supabase.auth.signOut()} className="lg:hidden h-[48px] w-[48px] bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100 flex items-center justify-center shadow-sm">
-              <LogOut size={20}/>
-            </button>
-          </div>
-        </header>
+              {/* MULTI-SÉLECTION AVEC CHIPS */}
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase mb-3 block">Salles à bloquer simultanément</label>
+                <div className="flex flex-wrap gap-2">
+                  {spaces.map(space => {
+                    const isSelected = selectedSpacesToBlock.includes(space.id);
+                    return (
+                      <button 
+                        key={space.id} type="button" onClick={() => toggleSpaceBlock(space.id)}
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase transition-colors border ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                      >
+                        {isSelected && <CheckCircle2 size={14} className="inline mr-1" />} {space.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-        {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
-        <div className="lg:hidden px-4 pb-4 flex flex-col gap-4 flex-shrink-0 z-30">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher (nom, salle...)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm" />
-          </div>
-          {pendingBookings.length > 0 && (
-            <div>
-              <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">En attente ({pendingBookings.length})</h2>
-              <div className="flex gap-3 overflow-x-auto pb-2 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
-                {pendingBookings.map(b => (
-                  <div key={b.id} onClick={() => openBookingModal(b)} className="shrink-0 w-48 p-3 rounded-2xl border border-blue-100 bg-white hover:border-blue-300 cursor-pointer transition-all shadow-sm">
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-700 mb-1.5 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
-                    <p className="font-bold text-sm truncate">{b.user_name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 flex items-center"><Clock size={10} className="mr-1"/> {format(new Date(b.start_time), "d MMM HH:mm", {locale:fr})}</p>
+              <button type="submit" className="bg-black text-white px-8 h-[52px] rounded-xl font-black uppercase text-xs w-full sm:w-auto hover:bg-gray-800 transition-colors">
+                Bloquer les salles
+              </button>
+            </form>
+
+            <div className="mt-12">
+              <h3 className="text-xs font-black text-gray-400 uppercase mb-4">Créneaux bloqués récemment</h3>
+              <div className="space-y-2">
+                {bookings.filter(b => b.is_block).map(b => (
+                  <div key={b.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <div>
+                      <div className="font-bold text-sm">{b.reason}</div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase">{format(new Date(b.start_time), "d MMM")} • {format(new Date(b.start_time), "HH:mm")} - {format(new Date(b.end_time), "HH:mm")} • <span style={{color: b.spaces?.color}}>{b.spaces?.name}</span></div>
+                    </div>
+                    <button onClick={() => deleteBooking(b.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-        </div>
-
-        <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
-          {searchTerm ? (
-             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-sm p-8 overflow-auto mt-2 lg:mt-0">
-                <div className="flex items-center justify-between mb-8 border-b pb-4">
-                  <h2 className="text-2xl font-black">Résultats : "{searchTerm}"</h2>
-                  <button onClick={() => setSearchTerm("")} className="text-sm font-bold bg-gray-100 px-4 py-2 rounded-xl hover:bg-gray-200">Effacer</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredBookings.map(b => (
-                    <div key={b.id} onClick={() => openBookingModal(b)} className="p-6 border border-gray-100 bg-white rounded-2xl cursor-pointer hover:border-black hover:shadow-lg transition-all">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-gray-50" style={{color: b.spaces?.color}}>{b.spaces?.name}</span>
-                        <span className={`text-[9px] font-black uppercase px-2 py-1 rounded ${b.status==='pending'?'bg-blue-100 text-blue-700':'bg-green-100 text-green-700'}`}>{b.status === 'pending' ? 'Attente' : 'Confirmé'}</span>
-                      </div>
-                      <p className="font-bold text-lg mb-1">{b.user_name}</p>
-                      <p className="text-sm font-medium text-gray-500 mb-4">{format(new Date(b.start_time), "d MMMM yyyy • HH:mm", {locale:fr})}</p>
-                      <p className="text-xs text-gray-400 line-clamp-2">{b.reason}</p>
-                    </div>
-                  ))}
-                </div>
-             </div>
-          ) : (
-            <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden mt-2 lg:mt-0">
-              <div className="flex-1 overflow-auto relative scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
-                <table className="w-full border-separate border-spacing-0 min-w-[800px]">
-                  <thead>
-                    <tr className="sticky top-0 z-30">
-                      <th className="sticky left-0 z-50 bg-gray-50 border-b border-r border-gray-100 w-16 lg:w-20 h-20 shadow-[1px_1px_0_rgba(0,0,0,0.02)]"><Clock size={16} className="mx-auto text-gray-400" /></th>
-                      {spaces.map(space => (
-                        <th key={space.id} className="bg-white/95 backdrop-blur-md border-b border-r border-gray-100 h-20 px-2 leading-tight">
-                          <span className="text-[11px] lg:text-xs font-black uppercase tracking-widest block truncate" style={{ color: space.color }}>{space.name}</span>
-                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block mt-1">{space.capacity ? `${space.capacity} places` : 'Capacité N/A'}</span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hours.map(h => (
-                      <tr key={h} className="h-16">
-                        <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center shadow-[1px_0_0_rgba(0,0,0,0.02)]">{h}:00</td>
-                        {spaces.map(space => {
-                          const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
-                          return (
-                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 bg-white hover:bg-gray-50 transition-colors">
-                              {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
-                                <div key={b.id} onClick={() => openBookingModal(b)} className={`absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm cursor-pointer hover:scale-[1.02] transition-transform ${b.status === 'pending' ? 'opacity-70 border-dashed border-2 border-white/50' : 'opacity-100'}`} style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours()) * 64}px - 8px)`, backgroundColor: space.color }}>
-                                  {b.user_name}
-                                </div>
-                              ))}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* MODAL BLOCAGE MULTIPLE */}
-      {showBlockModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900 flex items-center"><Lock className="mr-2" size={20}/> Bloquer</h2>
-              <button onClick={() => setShowBlockModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5"/></button>
-            </div>
-            <form onSubmit={generateBlocks} className="space-y-4">
-              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Espace à bloquer</label><select name="space_id" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none">{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Nom du créneau</label><input type="text" name="block_name" defaultValue="🔐 Blocage Admin" placeholder="Ex: Célébrations" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-              <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Date de début</label><input type="date" name="start_date" required defaultValue={format(currentDate, "yyyy-MM-dd")} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">De</label><input type="time" name="start_time" required defaultValue="08:00" className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="12:00" className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Récurrence</label>
-                  <select name="recurrence" value={recurrenceOption} onChange={(e) => setRecurrenceOption(e.target.value)} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none">
-                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Ttes les semaines</option><option value="monthly">Tous les mois</option>
-                  </select>
-                </div>
-                {recurrenceOption !== "none" && (
-                  <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Jusqu'au</label><input type="date" name="end_recurrence" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-                )}
-              </div>
-              <button type="submit" className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm">Bloquer ces créneaux</button>
-            </form>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* MODAL ALERTE CONFLIT */}
-      {conflictModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setConflictModal(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <h2 className="text-xl font-black uppercase tracking-tight text-red-600 flex items-center"><AlertTriangle className="mr-2" size={24}/> Conflits détectés</h2>
-              <button onClick={() => setConflictModal(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X className="w-5 h-5"/></button>
+        {/* ONGLET CMS */}
+        {activeTab === 'content' && (
+          <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-200 space-y-6">
+            <h2 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Edit size={20}/> Textes du site</h2>
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Titre Introduction Accueil</label>
+              <input type="text" value={siteContent.intro_title} onChange={e => setSiteContent({...siteContent, intro_title: e.target.value})} className="w-full border rounded-xl p-4 bg-gray-50 font-bold" />
             </div>
-            <p className="text-sm text-gray-600 mb-6 font-medium leading-relaxed">Les réservations suivantes chevauchent les créneaux que vous essayez de bloquer. Voulez-vous tout de même forcer le blocage ?</p>
-            
-            <div className="flex-1 overflow-auto mb-6 space-y-3 bg-red-50/50 p-4 rounded-2xl border border-red-100">
-              {conflictingBookings.map((b, i) => (
-                <div key={i} className="p-3 bg-white border border-red-200 rounded-xl shadow-sm">
-                  <span className="text-[9px] font-black px-2 py-0.5 rounded bg-red-100 text-red-700 mb-1 inline-block uppercase tracking-wider">{b.spaces?.name}</span>
-                  <p className="font-bold text-sm text-gray-900">{b.user_name}</p>
-                  <p className="text-xs text-gray-500 mt-1 flex items-center"><Clock size={12} className="mr-1"/> {format(new Date(b.start_time), "d MMM yyyy • HH:mm", {locale:fr})} à {format(new Date(b.end_time), "HH:mm")}</p>
-                </div>
-              ))}
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Texte Introduction Accueil</label>
+              <textarea value={siteContent.intro_paragraph} onChange={e => setSiteContent({...siteContent, intro_paragraph: e.target.value})} className="w-full border rounded-xl p-4 bg-gray-50 font-medium h-32" />
             </div>
-
-            <div className="flex gap-3 shrink-0">
-              <button onClick={() => setConflictModal(false)} className="flex-1 p-4 bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider">Annuler</button>
-              <button onClick={() => executeBlockInsertion(pendingBlocks)} className="flex-1 p-4 bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider">Forcer</button>
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Règles & Conditions (Pour rappel E-mail)</label>
+              <textarea value={siteContent.cgv_text} onChange={e => setSiteContent({...siteContent, cgv_text: e.target.value})} className="w-full border rounded-xl p-4 bg-gray-50 font-medium h-48" />
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL SUCCESS BLOCAGE */}
-      {blockSuccessMessage && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={() => setBlockSuccessMessage("")}>
-          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden p-10 text-center border">
-            <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-12 h-12 text-indigo-600" /></div>
-            <h2 className="text-2xl font-black text-gray-900 mb-2">Opération réussie</h2>
-            <p className="text-gray-500 font-medium mb-8">{blockSuccessMessage}</p>
-            <button onClick={() => setBlockSuccessMessage("")} className="w-full bg-indigo-600 text-white font-black py-5 rounded-3xl hover:scale-105 transition-transform flex items-center justify-center">Parfait <ChevronRight className="ml-2 w-5 h-5" /></button>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL GESTION RESERVATION */}
-      {selectedBooking && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans max-h-[90vh] overflow-y-auto border border-white/20">
-             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">{isEditing ? "Modifier" : "Gérer la demande"}</h2>
-                <button type="button" onClick={() => {setSelectedBooking(null); setIsEditing(false);}} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X className="w-5 h-5"/></button>
-             </div>
-             
-             <form onSubmit={handleEditSave} className="space-y-6">
-                {isEditing ? (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Demandeur</label><input required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" value={editData.user_name} onChange={e => setEditData({...editData, user_name: e.target.value})} /></div>
-                      <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Espace</label><select className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" value={editData.space_id} onChange={e => setEditData({...editData, space_id: e.target.value})}>{spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Début</label><input type="time" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" value={editData.start_time} onChange={e => setEditData({...editData, start_time: e.target.value})} /></div>
-                      <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Fin</label><input type="time" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" value={editData.end_time} onChange={e => setEditData({...editData, end_time: e.target.value})} /></div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-6 rounded-[24px] border border-gray-100">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="font-black text-xl text-gray-900">{selectedBooking.user_name}</p>
-                          {selectedBooking.user_email && <p className="text-xs text-gray-500 font-medium mt-1">{selectedBooking.user_phone} • {selectedBooking.user_email}</p>}
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 bg-white rounded-lg shadow-sm border border-gray-100" style={{color: selectedBooking.spaces?.color}}>{selectedBooking.spaces?.name}</span>
-                      </div>
-                      <div className="bg-white p-4 rounded-xl border border-gray-100 flex items-center shadow-sm">
-                        <Clock size={16} className="text-gray-400 mr-3"/>
-                        <p className="text-sm font-bold text-gray-800">{format(new Date(selectedBooking.start_time), "EEEE d MMMM yyyy", {locale:fr})} <span className="text-gray-400 mx-1">•</span> {format(new Date(selectedBooking.start_time), "HH:mm")} à {format(new Date(selectedBooking.end_time), "HH:mm")}</p>
-                      </div>
-                    </div>
-                    <div className="bg-blue-50/50 p-6 rounded-[24px] border border-blue-100">
-                      <strong className="block mb-2 uppercase text-[10px] font-black tracking-widest text-blue-500">Motif</strong> 
-                      <p className="text-sm text-blue-900 font-medium">{selectedBooking.reason}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {selectedBooking.user_email && (
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400 mb-2 block px-1">Message de l'Admin (Facultatif - Envoyé au demandeur)</label>
-                    <textarea placeholder="Ex: Réservation validée, mais attention à bien éteindre en partant..." className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black outline-none transition-all font-medium h-24 resize-none" value={adminMessage} onChange={e => setAdminMessage(e.target.value)} />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
-                  <button type="button" onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"><Trash2 className="w-5 h-5 mb-2"/> Supprimer</button>
-                  <button type="button" onClick={() => setIsEditing(!isEditing)} className="p-4 bg-gray-50 text-gray-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-gray-200 transition border border-gray-100"><Edit3 className="w-5 h-5 mb-2"/> {isEditing ? "Annuler" : "Modifier"}</button>
-                  {isEditing ? (
-                    <button type="submit" className="p-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center shadow-xl hover:bg-gray-800 transition"><Save className="w-5 h-5 mb-2"/> Sauver</button>
-                  ) : (
-                    <button type="button" onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className={`p-4 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center transition ${selectedBooking.status === 'confirmed' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-500 text-white shadow-lg hover:bg-green-600'}`} disabled={selectedBooking.status === 'confirmed'}><CheckCircle2 className="w-5 h-5 mb-2"/> {selectedBooking.status === 'confirmed' ? 'Déjà validé' : 'Valider'}</button>
-                  )}
-                </div>
-             </form>
-          </div>
-        </div>
-      )}
-      {/* MODAL ERREUR GLOBALE */}
-      {errorMessage && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[150] p-4" onMouseDown={() => setErrorMessage("")}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20">
-            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
-              <AlertTriangle className="w-10 h-10 text-red-500" />
-            </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Impossible</h2>
-            <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">{errorMessage}</p>
-            <button onClick={() => setErrorMessage("")} className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
-              Compris
+            <button onClick={saveContent} disabled={isSavingContent} className="bg-black text-white px-8 py-4 rounded-xl font-black uppercase text-xs flex items-center gap-2 hover:bg-gray-800 transition-colors">
+              {isSavingContent ? 'Enregistrement...' : <><Save size={16}/> Enregistrer</>}
             </button>
+          </div>
+        )}
+      </main>
+
+      {/* MODAL DÉTAILS DEMANDE & MODIFICATION */}
+      {selectedBooking && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+              <h2 className="font-black uppercase text-lg">Détails</h2>
+              <button onClick={() => setSelectedBooking(null)} className="p-2 bg-gray-100 rounded-full"><X size={20}/></button>
+            </div>
+            <div className="p-6 space-y-6">
+              
+              {!isEditing ? (
+                <>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="text-[10px] font-black text-gray-400 uppercase">Demandeur</div>
+                      <div className="font-black text-xl">{selectedBooking.user_name}</div>
+                      <div className="text-sm font-medium text-gray-500">{selectedBooking.user_email} • {selectedBooking.user_phone}</div>
+                    </div>
+                    <button onClick={() => { 
+                      setEditData({ 
+                        ...selectedBooking, 
+                        start_time: format(new Date(selectedBooking.start_time), "HH:mm"), 
+                        end_time: format(new Date(selectedBooking.end_time), "HH:mm") 
+                      }); 
+                      setIsEditing(true); 
+                    }} className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200">
+                      <Edit size={16}/>
+                    </button>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <div className="text-[10px] font-black text-gray-400 uppercase mb-1">Espace & Horaire</div>
+                    <div className="font-bold text-sm" style={{color: selectedBooking.spaces?.color}}>{selectedBooking.spaces?.name}</div>
+                    <div className="font-bold text-sm text-gray-900">{format(new Date(selectedBooking.start_time), "EEEE d MMMM", { locale: fr })}</div>
+                    <div className="font-black text-lg">{format(new Date(selectedBooking.start_time), "HH:mm")} - {format(new Date(selectedBooking.end_time), "HH:mm")}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase mb-1">Motif</div>
+                    <p className="bg-gray-50 p-4 rounded-xl font-medium text-sm text-gray-700 whitespace-pre-wrap">{selectedBooking.reason}</p>
+                  </div>
+                  
+                  {selectedBooking.status === 'pending' && (
+                    <div className="border-t pt-6">
+                      <label className="text-[10px] font-black text-gray-400 uppercase mb-2 block">Note à ajouter à l'e-mail (Optionnel)</label>
+                      <textarea value={adminMessage} onChange={e => setAdminMessage(e.target.value)} placeholder="Ex: N'oublie pas les clés..." className="w-full border rounded-xl p-3 bg-gray-50 text-sm h-20 mb-4" />
+                      <div className="flex gap-3">
+                        <button onClick={() => updateStatus(selectedBooking.id, 'confirmed')} className="flex-1 bg-green-500 hover:bg-green-600 transition-colors text-white font-black uppercase py-4 rounded-xl flex items-center justify-center gap-2"><CheckCircle2 size={18}/> Valider</button>
+                        <button onClick={() => updateStatus(selectedBooking.id, 'rejected')} className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 transition-colors font-black uppercase py-4 rounded-xl flex items-center justify-center gap-2 border border-red-200"><XCircle size={18}/> Refuser</button>
+                      </div>
+                    </div>
+                  )}
+                  {selectedBooking.status === 'confirmed' && (
+                    <div className="border-t pt-6 text-center">
+                      <button onClick={() => deleteBooking(selectedBooking.id)} className="text-red-500 text-xs font-bold uppercase underline">Annuler et supprimer cette réservation</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <form onSubmit={handleEditSave} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Début</label>
+                      <select value={editData.start_time} onChange={e => setEditData({...editData, start_time: e.target.value, end_time: addMinutesToTimeStr(e.target.value, 15)})} className="w-full h-[52px] border rounded-xl px-4 bg-gray-50 font-bold cursor-pointer">
+                        {generateTimeOptions("06:00", false).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Fin</label>
+                      <select value={editData.end_time} onChange={e => setEditData({...editData, end_time: e.target.value})} className="w-full h-[52px] border rounded-xl px-4 bg-gray-50 font-bold cursor-pointer">
+                        {generateTimeOptions(editData.start_time, true).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Espace</label>
+                    <select value={editData.space_id} onChange={e => setEditData({...editData, space_id: e.target.value})} className="w-full h-[52px] border rounded-xl px-4 bg-gray-50 font-bold cursor-pointer">
+                      {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Motif</label>
+                    <textarea value={editData.reason} onChange={e => setEditData({...editData, reason: e.target.value})} className="w-full border rounded-xl p-4 bg-gray-50 font-medium h-24" />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="button" onClick={() => setIsEditing(false)} className="flex-1 bg-gray-100 hover:bg-gray-200 transition-colors font-black uppercase py-4 rounded-xl text-xs">Annuler</button>
+                    <button type="submit" className="flex-1 bg-black text-white hover:bg-gray-800 transition-colors font-black uppercase py-4 rounded-xl text-xs flex items-center justify-center gap-2"><Save size={16}/> Enregistrer</button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4" onClick={() => setErrorMessage("")}>
+          <div className="bg-white p-8 rounded-3xl text-center max-w-sm">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle/></div>
+            <h2 className="font-black uppercase mb-2">Erreur</h2>
+            <p className="text-sm text-gray-500">{errorMessage}</p>
           </div>
         </div>
       )}
