@@ -2,41 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfDay, addMonths, subMonths } from "date-fns";
+import { 
+  format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
+  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
+} from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon, DoorOpen, AlertTriangle } from "lucide-react";
+import { 
+  ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, 
+  Calendar as CalendarIcon, DoorOpen, AlertTriangle
+} from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile';
 
-const ROOM_ORDER = ["Conférence 1", "Conférence 2", "Espace canapés", "Social Stairs", "Bureaux", "Grande salle", "Enfance"];
-
-const generateTimeOptions = (minTimeStr = "06:00", isEnd = false, selectedDate = new Date()) => {
-  const options = [];
-  const now = new Date();
-  const isToday = isSameDay(selectedDate, now);
-  const currentHour = now.getHours();
-  const currentMin = now.getMinutes();
-
-  for (let h = 6; h <= 23; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      if (h === 23 && m > 0) continue;
-      const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      if (timeStr < minTimeStr) continue;
-      if (isEnd && timeStr === minTimeStr) continue;
-      if (isToday && !isEnd) {
-         if (h < currentHour || (h === currentHour && m <= currentMin)) continue;
-      }
-      options.push(timeStr);
-    }
-  }
-  return options;
-};
-
-const addMinutesToTimeStr = (timeStr: string, minsToAdd: number) => {
-  const [h, m] = timeStr.split(':').map(Number);
-  const date = new Date(); date.setHours(h, m + minsToAdd, 0, 0);
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-};
+// ORDRE FIGÉ DES SALLES
+const ROOM_ORDER = [
+  "Conférence 1",
+  "Conférence 2",
+  "Espace canapés",
+  "Social Stairs",
+  "Bureaux",
+  "Grande salle",
+  "Enfance"
+];
 
 export default function CalendarPage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -44,18 +31,26 @@ export default function CalendarPage() {
   const [currentMonthView, setCurrentMonthView] = useState(startOfMonth(new Date()));
   const [spaces, setSpaces] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [siteContent, setSiteContent] = useState({ intro_title: "Chargement...", intro_paragraph: "" });
+  const [siteContent, setSiteContent] = useState({ 
+    intro_title: "Chargement...", 
+    intro_paragraph: "" 
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
-    space_id: "", first_name: "", last_name: "", user_email: "", phone: "+41 ", reason: "", start_time: "10:00", end_time: "10:15", cgv_accepted: false
+    space_id: "", first_name: "", last_name: "", user_email: "", 
+    phone: "+41 ", reason: "", start_time: "10:00", end_time: "10:15",
+    cgv_accepted: false
   });
 
   const today = startOfDay(new Date());
@@ -64,7 +59,12 @@ export default function CalendarPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { setIsModalOpen(false); setViewSpace(null); setIsSidebarOpen(false); setErrorMessage(""); }
+      if (e.key === 'Escape') { 
+        setIsModalOpen(false); 
+        setViewSpace(null); 
+        setIsSidebarOpen(false);
+        setErrorMessage("");
+      }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -75,12 +75,16 @@ export default function CalendarPage() {
       const { data: spacesData } = await supabase.from("spaces").select("*");
       if (spacesData) {
         const sorted = spacesData.sort((a, b) => {
-          let indexA = ROOM_ORDER.indexOf(a.name); let indexB = ROOM_ORDER.indexOf(b.name);
-          return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+          let indexA = ROOM_ORDER.indexOf(a.name);
+          let indexB = ROOM_ORDER.indexOf(b.name);
+          if (indexA === -1) indexA = 99; 
+          if (indexB === -1) indexB = 99;
+          return indexA - indexB;
         });
         setSpaces(sorted);
         if (sorted.length > 0) setFormData(prev => ({ ...prev, space_id: sorted[0].id }));
       }
+      
       const { data: contentData } = await supabase.from("site_content").select("intro_title, intro_paragraph").eq("id", 1).single();
       if (contentData) setSiteContent(contentData);
     };
@@ -90,32 +94,136 @@ export default function CalendarPage() {
   const fetchBookings = async () => {
     const start = new Date(currentDate); start.setHours(0, 0, 0, 0);
     const end = new Date(currentDate); end.setHours(23, 59, 59, 999);
-    const { data } = await supabase.from("bookings").select("*").gte("start_time", start.toISOString()).lte("start_time", end.toISOString());
+    const { data } = await supabase.from("bookings").select("*")
+      .gte("start_time", start.toISOString()).lte("start_time", end.toISOString());
     if (data) setBookings(data);
   };
 
   useEffect(() => { fetchBookings(); }, [currentDate]);
 
+  // FONCTION POUR AJOUTER DES MINUTES
+  const addMinutesToTimeStr = (timeStr: string, minsToAdd: number) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m + minsToAdd, 0, 0);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // ARRONDIT L'HEURE À LA TRANCHE DE 15 MIN LA PLUS PROCHE (ET LIMITE 06:00 - 23:00)
+  const snapTime = (timeStr: string, isStart: boolean) => {
+    if (!timeStr) return isStart ? "06:00" : "06:15";
+    let [h, m] = timeStr.split(':').map(Number);
+    
+    if (isNaN(h) || isNaN(m)) return isStart ? "06:00" : "06:15";
+
+    // Arrondi à 00, 15, 30 ou 45
+    const remainder = m % 15;
+    if (remainder !== 0) {
+      if (remainder < 8) m -= remainder;
+      else m += (15 - remainder);
+    }
+    
+    if (m >= 60) { m = 0; h += 1; }
+
+    // Limites de la journée
+    if (h < 6) { h = 6; m = 0; }
+    if (h > 23 || (h === 23 && m > 0)) { h = 23; m = 0; }
+    if (isStart && h === 23 && m === 0) { h = 22; m = 45; } // Le début max est 22:45
+
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  // GESTIONNAIRE UNIFIÉ POUR L'HEURE DE DÉBUT (SNAPPING + VERROU PASSE)
+  const applyStartTimeLogic = (rawTime: string) => {
+    let snappedStart = snapTime(rawTime, true);
+    
+    // VERROUILLAGE DU PASSÉ (Si on est aujourd'hui)
+    if (isSameDay(currentDate, new Date())) {
+      const now = new Date();
+      const [sh, sm] = snappedStart.split(':').map(Number);
+      const snappedDate = new Date();
+      snappedDate.setHours(sh, sm, 0, 0);
+
+      // Si l'heure sélectionnée est dans le passé, on bondit au prochain créneau futur
+      if (snappedDate < now) {
+        let nh = now.getHours();
+        let nm = now.getMinutes();
+        
+        // Arrondi au prochain 15 min
+        const remainder = nm % 15;
+        nm += (15 - remainder);
+        if (nm >= 60) { nm = 0; nh += 1; }
+
+        // Limites de la journée
+        if (nh < 6) { nh = 6; nm = 0; }
+        if (nh >= 23) { nh = 22; nm = 45; }
+        snappedStart = `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+      }
+    }
+
+    // AJUSTEMENT AUTOMATIQUE DE LA FIN (+15 min minimum)
+    let newEnd = formData.end_time;
+    const [sh, sm] = snappedStart.split(':').map(Number);
+    const [eh, em] = newEnd.split(':').map(Number);
+    
+    if (sh * 60 + sm >= eh * 60 + em) {
+      newEnd = addMinutesToTimeStr(snappedStart, 15);
+    }
+    
+    // On ne dépasse pas 23h
+    if (newEnd > "23:00") newEnd = "23:00";
+    
+    setFormData(prev => ({ ...prev, start_time: snappedStart, end_time: newEnd }));
+  };
+
+  // GESTIONNAIRE UNIFIÉ POUR L'HEURE DE FIN (SNAPPING + MINIMUM)
+  const applyEndTimeLogic = (rawTime: string) => {
+    let snappedEnd = snapTime(rawTime, false);
+    
+    const [sh, sm] = formData.start_time.split(':').map(Number);
+    const [eh, em] = snappedEnd.split(':').map(Number);
+
+    // Si on essaie de mettre une fin avant ou égale au début, on force à début + 15min
+    if (eh * 60 + em <= sh * 60 + sm) {
+      snappedEnd = addMinutesToTimeStr(formData.start_time, 15);
+    }
+    
+    // On ne dépasse pas 23h
+    if (snappedEnd > "23:00") snappedEnd = "23:00";
+
+    setFormData(prev => ({ ...prev, end_time: snappedEnd }));
+  };
+
   const openBookingModal = (spaceId = "") => {
-    const options = generateTimeOptions("06:00", false, currentDate);
-    if (options.length === 0) { setErrorMessage("Plus aucun créneau disponible pour aujourd'hui."); return; }
-    const startStr = options[0];
+    const now = new Date();
+    let h = now.getHours();
+    let m = now.getMinutes();
+
+    // On arrondit à la prochaine tranche de 15 minutes
+    const remainder = m % 15;
+    m += (15 - remainder);
+    if (m >= 60) { m = 0; h += 1; }
+
+    // On limite aux heures d'ouverture par défaut (06:00 - 22:45 max start)
+    if (h < 6) { h = 6; m = 0; }
+    if (h >= 23) { h = 22; m = 45; }
+    
+    const startStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     const endStr = addMinutesToTimeStr(startStr, 15);
+
     setFormData({ ...formData, space_id: spaceId || spaces[0]?.id || "", start_time: startStr, end_time: endStr });
     setIsModalOpen(true);
   };
 
   const handleSlotClick = (spaceId: string, hour: number) => {
-    const startStr = `${String(hour).padStart(2, '0')}:00`;
-    const endStr = addMinutesToTimeStr(startStr, 15);
+    let h = hour;
+    if (h < 6) h = 6;
+    if (h > 22) h = 22;
+
+    const startStr = h.toString().padStart(2, '0') + ":00";
+    const endStr = h.toString().padStart(2, '0') + ":15";
     setFormData(prev => ({ ...prev, space_id: spaceId, start_time: startStr, end_time: endStr }));
     setIsModalOpen(true);
-  };
-
-  const handleStartTimeChange = (newStartTime: string) => {
-    let newEndTime = formData.end_time;
-    if (newEndTime <= newStartTime) newEndTime = addMinutesToTimeStr(newStartTime, 15);
-    setFormData(prev => ({ ...prev, start_time: newStartTime, end_time: newEndTime }));
   };
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
@@ -125,8 +233,14 @@ export default function CalendarPage() {
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
     const end = new Date(currentDate); const [eh, em] = formData.end_time.split(':'); end.setHours(parseInt(eh), parseInt(em), 0);
     
-    if (start < new Date()) { setErrorMessage("Impossible de réserver dans le passé."); return; }
-    if (end <= start) { setErrorMessage("L'heure de fin doit être après l'heure de début."); return; }
+    if (start < new Date()) { 
+      setErrorMessage("Impossible de réserver dans le passé. Veuillez choisir un horaire futur."); 
+      return; 
+    }
+    if (end <= start) { 
+      setErrorMessage("L'heure de fin doit obligatoirement être après l'heure de début."); 
+      return; 
+    }
 
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
@@ -134,59 +248,130 @@ export default function CalendarPage() {
     let googleEventId = null;
     try {
       const calRes = await fetch('/api/calendar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', booking: { user_name: full_name, user_email: formData.user_email, reason: formData.reason, start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending', space_name: spaceObj?.name, space_color: spaceObj?.color } })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'create', 
+          booking: { 
+            user_name: full_name, user_email: formData.user_email, reason: formData.reason,
+            start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending',
+            space_name: spaceObj?.name, space_color: spaceObj?.color 
+          } 
+        })
       });
-      const calData = await calRes.json(); googleEventId = calData.google_event_id || null;
-    } catch (err) { console.error("Erreur Google Calendar:", err); }
+      const calData = await calRes.json();
+      googleEventId = calData.google_event_id || null;
+    } catch (err) {
+      console.error("Erreur Google Calendar:", err);
+    }
 
     const { data, error } = await supabase.from("bookings").insert([{
-      space_id: formData.space_id, user_name: full_name, user_email: formData.user_email, user_phone: formData.phone, reason: formData.reason, start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending', google_event_id: googleEventId
+      space_id: formData.space_id, user_name: full_name, user_email: formData.user_email,
+      user_phone: formData.phone, reason: formData.reason, 
+      start_time: start.toISOString(), end_time: end.toISOString(), status: 'pending',
+      google_event_id: googleEventId
     }]).select();
 
     if (error) { 
-      if (error.message.includes("prevent_double_booking")) setErrorMessage("Ce créneau est malheureusement déjà pris ou en attente d'approbation.");
-      else setErrorMessage("Une erreur est survenue : " + error.message); 
+      if (error.message.includes("prevent_double_booking")) {
+        setErrorMessage("Ce créneau est malheureusement déjà pris ou en attente d'approbation. Veuillez choisir un autre horaire.");
+      } else {
+        setErrorMessage("Une erreur est survenue : " + error.message); 
+      }
       return; 
     }
 
-    fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'NEW_REQUEST', booking_id: data?.[0]?.id, user_name: full_name, user_email: formData.user_email, space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason }) }).catch(console.error);
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'NEW_REQUEST', booking_id: data?.[0]?.id, user_name: full_name, user_email: formData.user_email,
+        space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
+      })
+    }).catch(console.error);
 
     setIsModalOpen(false); setShowSuccess(true); setCaptchaToken(null); fetchBookings(); 
   };
 
   const returnHome = () => { window.location.href = "/"; };
+
   const openSpaceModal = (space: any) => { setViewSpace(space); setCurrentImageIndex(0); };
+
   const spaceImages = viewSpace?.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
 
+  const onTouchStart = (e: React.TouchEvent) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
+  const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > 50) setCurrentImageIndex(p => (p + 1) % spaceImages.length);
+    if (distance < -50) setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1);
+  };
+
   const monthStart = startOfMonth(currentMonthView);
-  const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 }) });
+  const calendarDays = eachDayOfInterval({ 
+    start: startOfWeek(monthStart, { weekStartsOn: 1 }), 
+    end: endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 }) 
+  });
 
   if (!isMounted) return null;
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
+
+      {/* HEADER MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
-        <div onClick={returnHome} className="cursor-pointer shrink-0"><img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" /></div>
+        <div onClick={returnHome} className="cursor-pointer shrink-0">
+          <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" />
+        </div>
         <div className="w-[1px] h-4 bg-gray-300 shrink-0"></div>
-        <div className="flex items-center space-x-1.5 shrink-0"><DoorOpen size={14} className="text-gray-900" /><span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">Spaces</span></div>
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <DoorOpen size={14} className="text-gray-900" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">
+            Spaces
+          </span>
+        </div>
       </div>
 
+      {/* TEXTE D'INTRO MOBILE */}
       <div className="lg:hidden bg-[#F4E5D2] px-5 py-4 shrink-0 text-center border-b border-[#EADDCC] shadow-sm">
-        <h2 className="text-sm font-black text-black mb-1.5 leading-snug">{siteContent.intro_title}</h2>
-        <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">{siteContent.intro_paragraph}</p>
+        <h2 className="text-sm font-black text-black mb-1.5 leading-snug">
+          {siteContent.intro_title}
+        </h2>
+        <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
+          {siteContent.intro_paragraph}
+        </p>
       </div>
 
+      {/* SIDEBAR DESKTOP */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
-          <div onClick={returnHome} className="cursor-pointer group hover:scale-105 transition-transform"><img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" /></div>
-          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max"><DoorOpen size={14} className="text-gray-900" /><span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">Spaces</span></div>
-        </div>
-        <div className="p-6 flex-1 overflow-y-auto">
-          <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
-            <h2 className="text-sm font-black text-black mb-2 leading-snug">{siteContent.intro_title}</h2>
-            <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">{siteContent.intro_paragraph}</p>
+          <div onClick={returnHome} className="cursor-pointer group">
+            <div className="group-hover:scale-105 transition-transform">
+              <img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" />
+            </div>
           </div>
+          
+          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max">
+             <DoorOpen size={14} className="text-gray-900" />
+             <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
+               Spaces
+             </span>
+          </div>
+        </div>
+
+        <div className="p-6 flex-1 overflow-y-auto">
+          
+          {/* TEXTE D'INTRO DESKTOP */}
+          <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
+            <h2 className="text-sm font-black text-black mb-2 leading-snug">
+              {siteContent.intro_title}
+            </h2>
+            <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">
+              {siteContent.intro_paragraph}
+            </p>
+          </div>
+
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <span className="font-bold text-xs capitalize text-gray-900">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
@@ -198,9 +383,13 @@ export default function CalendarPage() {
             <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d => <div key={d} className="text-[9px] font-bold text-gray-400">{d}</div>)}</div>
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day, i) => {
-                const isPast = isBefore(day, today); const isSelected = isSameDay(day, currentDate);
+                const isPast = isBefore(day, today);
+                const isSelected = isSameDay(day, currentDate);
                 return (
-                  <div key={i} onClick={() => { if(!isPast) setCurrentDate(day); }} className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 ${isPast ? 'text-gray-200 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200'} ${isSelected ? 'bg-black text-white font-bold shadow-md' : 'text-gray-700'}`}>
+                  <div key={i} onClick={() => { if(!isPast) setCurrentDate(day); }} 
+                    className={`h-8 flex items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 
+                      ${isPast ? 'text-gray-200 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200'} 
+                      ${isSelected ? 'bg-black text-white font-bold shadow-md' : 'text-gray-700'}`}>
                     {format(day, "d")}
                   </div>
                 );
@@ -210,16 +399,32 @@ export default function CalendarPage() {
         </div>
       </aside>
 
+      {/* MODAL CALENDRIER MOBILE */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col">
-            <div className="flex justify-between items-center mb-6"><h2 className="text-lg font-black uppercase">Choisir une date</h2><button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full"><X className="w-5 h-5"/></button></div>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col">
+            <div className="flex justify-between items-center mb-6 shrink-0">
+              <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-5 h-5"/></button>
+            </div>
+            
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-              <div className="flex justify-between items-center mb-4"><span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span><div className="flex space-x-1"><button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1"><ChevronLeft className="w-4 h-4" /></button><button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1"><ChevronRight className="w-4 h-4" /></button></div></div>
+              <div className="flex justify-between items-center mb-4">
+                <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
+                <div className="flex space-x-1">
+                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
               <div className="grid grid-cols-7 gap-1">
                 {calendarDays.map((day, i) => {
                   const isPast = isBefore(day, today); const isSelected = isSameDay(day, currentDate);
-                  return <div key={i} onClick={() => { if(!isPast) {setCurrentDate(day); setIsSidebarOpen(false);} }} className={`h-9 flex items-center justify-center rounded-lg text-xs font-medium ${isPast ? 'text-gray-300' : 'cursor-pointer'} ${isSelected ? 'bg-black text-white' : ''}`}>{format(day, "d")}</div>;
+                  return (
+                    <div key={i} onClick={() => { if(!isPast) {setCurrentDate(day); setIsSidebarOpen(false);} }} 
+                      className={`h-9 flex items-center justify-center rounded-lg text-xs font-medium ${isPast ? 'text-gray-300' : 'cursor-pointer'} ${isSelected ? 'bg-black text-white' : ''}`}>
+                      {format(day, "d")}
+                    </div>
+                  );
                 })}
               </div>
             </div>
@@ -227,27 +432,49 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* ZONE PRINCIPALE */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 relative">
+        
+        {/* HEADER DE GRILLE */}
         <header className="px-4 lg:px-8 py-4 flex items-center justify-between z-10 shrink-0 w-full gap-2">
-          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2.5 bg-white rounded-xl shadow-sm border border-gray-200"><CalendarIcon size={20} /></button>
+          <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2.5 bg-white rounded-xl shadow-sm border border-gray-200">
+            <CalendarIcon size={20} />
+          </button>
+
           <div className="flex-1 flex justify-center lg:justify-start">
             <div className="flex items-center justify-between w-full max-w-[240px] bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm h-12">
-              <button onClick={() => {if(!isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className="p-2 hover:bg-gray-100 rounded-xl transition"><ChevronLeft size={18}/></button>
-              <div onClick={() => setIsSidebarOpen(true)} className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate">
-                <span className="text-[13px] sm:text-lg font-black capitalize truncate hidden sm:block">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
-                <span className="text-[13px] sm:text-lg font-black capitalize truncate sm:hidden">{format(currentDate, "EE d MMM", { locale: fr })}</span>
+              <button onClick={() => {if(!isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className="p-2 hover:bg-gray-100 rounded-xl transition">
+                <ChevronLeft size={18}/>
+              </button>
+              
+              <div 
+                onClick={() => setIsSidebarOpen(true)} 
+                className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate"
+              >
+                <span className="text-[13px] sm:text-lg font-black capitalize truncate hidden sm:block">
+                  {format(currentDate, "EEEE d MMMM", { locale: fr })}
+                </span>
+                <span className="text-[13px] sm:text-lg font-black capitalize truncate sm:hidden">
+                  {format(currentDate, "EE d MMM", { locale: fr }).replace('.', '')}
+                </span>
               </div>
-              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-xl transition"><ChevronRight size={18}/></button>
+
+              <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-xl transition">
+                <ChevronRight size={18}/>
+              </button>
             </div>
           </div>
+
           <button onClick={() => openBookingModal()} className="h-12 bg-black text-white px-4 sm:px-6 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition shadow-xl flex items-center justify-center text-[10px]">
-            <Plus size={16} className="lg:mr-2" /> <span className="hidden lg:inline">Nouvelle demande</span>
+            <Plus size={16} className="lg:mr-2" /> 
+            <span className="hidden lg:inline">Nouvelle demande</span>
           </button>
         </header>
 
+        {/* GRILLE DES SALLES */}
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           <div className="flex-1 bg-white rounded-[32px] border border-gray-200 shadow-sm flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-1 overflow-auto relative overscroll-none">
+            <div className="flex-1 overflow-auto relative overscroll-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               <table className="w-full border-separate border-spacing-0 min-w-[800px] pb-12">
                 <thead>
                   <tr className="sticky top-0 z-30">
@@ -267,11 +494,15 @@ export default function CalendarPage() {
                       {spaces.map(space => {
                         const spaceBookings = bookings.filter(b => b.space_id === space.id);
                         const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
-                        const slotTime = new Date(currentDate); slotTime.setHours(h, 0, 0, 0); const isPast = slotTime < new Date();
+                        
+                        const slotTime = new Date(currentDate); 
+                        slotTime.setHours(h, 0, 0, 0);
+                        const isPast = slotTime < new Date();
+                        
                         return (
                           <td key={space.id} className={`border-r border-b border-gray-100 relative p-0 h-16 group ${isPast ? 'bg-gray-100' : 'bg-white hover:bg-gray-50'}`}>
                             <div onClick={() => !isOccupied && !isPast && handleSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer">
-                              {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100" />}
+                              {!isOccupied && !isPast && <Plus size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
                             {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                               <div key={b.id} className="absolute inset-x-1.5 z-10 rounded-xl p-2 text-[10px] font-black text-white truncate shadow-sm transition-all" style={{ top: '4px', height: `calc(${(new Date(b.end_time).getHours() - new Date(b.start_time).getHours() + (new Date(b.end_time).getMinutes() - new Date(b.start_time).getMinutes())/60 ) * 64}px - 8px)`, backgroundColor: space.color, opacity: b.status === 'pending' ? 0.6 : 0.9 }}>
@@ -290,24 +521,31 @@ export default function CalendarPage() {
         </main>
       </div>
 
+      {/* MODAL PHOTOS SALLE AVEC CARROUSEL OPTIMISÉ */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
-            <div className="relative h-72 bg-gray-100 flex items-center justify-center group">
+            <div className="relative h-64 bg-gray-100 flex items-center justify-center group" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
               {spaceImages.length > 0 ? (
                 <>
                   <a href={spaceImages[currentImageIndex]} target="_blank" rel="noopener noreferrer" className="w-full h-full block cursor-zoom-in">
                     <img src={spaceImages[currentImageIndex]} className="w-full h-full object-cover" />
                   </a>
+                  
                   {spaceImages.length > 1 && (
                     <>
                       <div className="absolute inset-x-4 flex justify-between items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                         <button onClick={(e) => {e.stopPropagation(); setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)}} className="p-3 bg-white/90 rounded-full shadow-md hover:bg-white transition pointer-events-auto"><ChevronLeft size={24}/></button>
                         <button onClick={(e) => {e.stopPropagation(); setCurrentImageIndex(p => (p + 1) % spaceImages.length)}} className="p-3 bg-white/90 rounded-full shadow-md hover:bg-white transition pointer-events-auto"><ChevronRight size={24}/></button>
                       </div>
-                      <div className="absolute bottom-4 flex space-x-2">
+                      
+                      {/* LES PETITS RONDS BLANCS (INDICATEUR DE CARROUSEL) */}
+                      <div className="absolute bottom-4 flex space-x-1.5 pointer-events-none">
                         {spaceImages.map((_: any, idx: number) => (
-                          <div key={idx} className={`h-2 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-4' : 'bg-white/50 w-2'}`} />
+                          <div 
+                            key={idx} 
+                            className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} 
+                          />
                         ))}
                       </div>
                     </>
@@ -326,9 +564,10 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* MODAL RÉSERVATION */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
               <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Demande de réservation</h2>
               <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full"><X size={20}/></button>
@@ -353,10 +592,7 @@ export default function CalendarPage() {
                     max="22:45"
                     required 
                     value={formData.start_time} 
-                    onChange={(e) => {
-                      setFormData({...formData, start_time: e.target.value});
-                      setTimeout(() => applyStartTimeLogic(e.target.value), 0);
-                    }} 
+                    onChange={(e) => setFormData({...formData, start_time: e.target.value})} 
                     onBlur={(e) => applyStartTimeLogic(e.target.value)}
                     className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
                   />
@@ -370,10 +606,7 @@ export default function CalendarPage() {
                     max="23:00"
                     required 
                     value={formData.end_time} 
-                    onChange={(e) => {
-                      setFormData({...formData, end_time: e.target.value});
-                      setTimeout(() => applyEndTimeLogic(e.target.value), 0);
-                    }} 
+                    onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
                     onBlur={(e) => applyEndTimeLogic(e.target.value)}
                     className="block w-full border rounded-xl p-3.5 bg-gray-50 font-bold" 
                   />
@@ -402,6 +635,7 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* MODAL ERREUR GLOBALE */}
       {errorMessage && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[150] p-4" onMouseDown={() => setErrorMessage("")}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20" onMouseDown={e => e.stopPropagation()}>
@@ -417,6 +651,7 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* MODAL SUCCÈS */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={() => setShowSuccess(false)}>
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 text-center border">

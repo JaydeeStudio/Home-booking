@@ -602,9 +602,9 @@ export default function AdminPage() {
               <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Nom du créneau</label><input type="text" name="block_name" defaultValue="🔐 Blocage Admin" placeholder="Ex: Célébrations" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
               <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Date de début</label><input type="date" name="start_date" required defaultValue={format(currentDate, "yyyy-MM-dd")} className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">De</label><input type="time" name="start_time" required defaultValue="08:00" className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-                <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">À</label><input type="time" name="end_time" required defaultValue="12:00" className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" /></div>
-              </div>
+                      <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Début</label><input type="time" step="900" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" value={editData.start_time} onChange={e => setEditData({...editData, start_time: e.target.value})} /></div>
+                      <div><label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Fin</label><input type="time" step="900" required className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" value={editData.end_time} onChange={e => setEditData({...editData, end_time: e.target.value})} /></div>
+                    </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">Récurrence</label>
