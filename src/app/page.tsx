@@ -9,6 +9,12 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [content, setContent] = useState<any>(null);
 
+  const defaultFaqs = [
+    { question: "Une fois ma demande envoyée, que se passe-t-il ?", answer: "Votre demande est mise 'en attente'. Vous recevrez ensuite un e-mail confirmant la validation ou vous proposant une alternative." },
+    { question: "Puis-je annuler ou modifier ma réservation ?", answer: "Oui ! Dans chaque e-mail, un lien direct vous permet d'annuler votre réservation en un clic." },
+    { question: "Est-ce gratuit ?", answer: "Gratuit pour les activités liées aux programmes officiels de Home. Pour tout autre événement, des frais de location peuvent s'appliquer." }
+  ];
+
   useEffect(() => {
     const fetchContent = async () => {
       const { data } = await supabase.from("site_content").select("*").eq("id", 1).single();
@@ -16,12 +22,6 @@ export default function LandingPage() {
     };
     fetchContent();
   }, []);
-
-  const defaultFaqs = [
-    { question: "Une fois ma demande envoyée, que se passe-t-il ?", answer: "Votre demande est mise 'en attente'. Vous recevrez ensuite un e-mail confirmant la validation ou vous proposant une alternative." },
-    { question: "Puis-je annuler ou modifier ma réservation ?", answer: "Oui ! Dans chaque e-mail, un lien direct vous permet d'annuler votre réservation en un clic." },
-    { question: "Est-ce gratuit ?", answer: "Gratuit pour les activités liées aux programmes officiels de Home. Pour tout autre événement, des frais de location peuvent s'appliquer." }
-  ];
 
   const faqs = content?.faq_json && content.faq_json.length > 0 ? content.faq_json : defaultFaqs;
 
@@ -74,14 +74,14 @@ export default function LandingPage() {
         <div className="bg-gray-900 text-white rounded-[24px] p-6 mb-12 flex flex-col sm:flex-row items-center justify-between shadow-xl relative overflow-hidden">
           <div className="absolute -right-4 -top-4 text-white/5 w-32 h-32"><Mail className="w-full h-full" /></div>
           <div className="relative z-10 sm:w-2/3 mb-4 sm:mb-0 text-center sm:text-left">
-            <h3 className="text-lg font-black uppercase mb-1">Un événement externe ?</h3>
+            <h3 className="text-lg font-black uppercase mb-1">{content?.ext_event_title || "Un événement externe ?"}</h3>
             <p className="text-gray-400 font-medium text-xs leading-relaxed">
-              Les demandes hors programme peuvent engendrer des frais. Écrivez-nous pour nous présenter votre projet.
+              {content?.ext_event_text || "Les demandes hors programme peuvent engendrer des frais. Écrivez-nous pour nous présenter votre projet."}
             </p>
           </div>
           <div className="relative z-10 w-full sm:w-auto">
-            <a href="mailto:sabine@eglisehome.com" className="block text-center bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-gray-100 text-[10px]">
-              Contacter Sabine
+            <a href={content?.ext_btn_link || "mailto:sabine@eglisehome.com"} className="block text-center bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-gray-100 text-[10px]">
+              {content?.ext_btn_text || "Contacter Sabine"}
             </a>
           </div>
         </div>
