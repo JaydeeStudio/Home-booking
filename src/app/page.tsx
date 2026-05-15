@@ -1,31 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import { ChevronDown, Users, CalendarCheck, ShieldCheck, Mail, ArrowRight, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [content, setContent] = useState<any>(null);
 
-  const faqs = [
-    {
-      question: "Une fois ma demande envoyée, que se passe-t-il ?",
-      answer: "Votre demande est mise 'en attente' sur notre calendrier. Un administrateur de Home va l'étudier. Vous recevrez ensuite un e-mail confirmant la validation de votre créneau ou vous proposant une alternative si la salle n'est plus disponible."
-    },
-    {
-      question: "Puis-je annuler ou modifier ma réservation ?",
-      answer: "Oui ! Dans chaque e-mail de confirmation ou de rappel que vous recevez, un lien direct vous permet d'annuler votre réservation en un clic, libérant ainsi la place pour quelqu'un d'autre."
-    },
-    {
-      question: "La réservation des locaux est-elle gratuite ?",
-      answer: "Pour les activités liées aux programmes officiels de Home (Sisterhood, réunions d'équipe, etc.), la mise à disposition est gratuite. Pour tout autre événement privé ou externe, des frais de location peuvent s'appliquer. Contactez-nous pour en discuter !"
-    }
+  useEffect(() => {
+    const fetchContent = async () => {
+      const { data } = await supabase.from("site_content").select("*").eq("id", 1).single();
+      if (data) setContent(data);
+    };
+    fetchContent();
+  }, []);
+
+  const defaultFaqs = [
+    { question: "Une fois ma demande envoyée, que se passe-t-il ?", answer: "Votre demande est mise 'en attente'. Vous recevrez ensuite un e-mail confirmant la validation ou vous proposant une alternative." },
+    { question: "Puis-je annuler ou modifier ma réservation ?", answer: "Oui ! Dans chaque e-mail, un lien direct vous permet d'annuler votre réservation en un clic." },
+    { question: "Est-ce gratuit ?", answer: "Gratuit pour les activités liées aux programmes officiels de Home. Pour tout autre événement, des frais de location peuvent s'appliquer." }
   ];
+
+  const faqs = content?.faq_json && content.faq_json.length > 0 ? content.faq_json : defaultFaqs;
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-[#F4E5D2] selection:text-black">
       
-      {/* HEADER / HERO ULTRA-COMPACT */}
       <header className="bg-[#F4E5D2] px-4 py-8 md:py-12 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden rounded-b-[32px]">
         <div className="relative z-10 max-w-4xl mx-auto w-full">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -33,46 +35,42 @@ export default function LandingPage() {
             <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">Home Spaces</h1>
           </div>
           <p className="text-sm md:text-base text-black/80 font-medium max-w-xl mx-auto mb-6 px-4">
-            La plateforme de réservation des espaces de l'église, réservée à la communauté Home Lausanne.
+            {content?.landing_title || "La plateforme de réservation des espaces de l'église, réservée à la communauté Home Lausanne."}
           </p>
 
-          {/* LES 3 BLOCS COMPACTS (Grid horizontale sur mobile pour gagner de la place) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl mx-auto mb-6 px-2">
             <div className="bg-white/60 backdrop-blur-sm p-3 rounded-2xl flex items-center gap-3 text-left border border-[#EADDCC]">
               <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0"><Users size={20} /></div>
               <div>
-                <h3 className="text-xs font-black uppercase">Pour la commu</h3>
-                <p className="text-[10px] text-gray-600 font-medium leading-tight">Leaders, équipes, groupes de maison...</p>
+                <h3 className="text-xs font-black uppercase">{content?.block1_title || "Pour la commu"}</h3>
+                <p className="text-[10px] text-gray-600 font-medium leading-tight">{content?.block1_text || "Leaders, équipes, groupes de maison..."}</p>
               </div>
             </div>
             <div className="bg-white/60 backdrop-blur-sm p-3 rounded-2xl flex items-center gap-3 text-left border border-[#EADDCC]">
               <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0"><CalendarCheck size={20} /></div>
               <div>
-                <h3 className="text-xs font-black uppercase">Nos activités</h3>
-                <p className="text-[10px] text-gray-600 font-medium leading-tight">Sisterhood, louange, réunions, 313...</p>
+                <h3 className="text-xs font-black uppercase">{content?.block2_title || "Nos activités"}</h3>
+                <p className="text-[10px] text-gray-600 font-medium leading-tight">{content?.block2_text || "Sisterhood, louange, réunions, 313..."}</p>
               </div>
             </div>
             <div className="bg-white/60 backdrop-blur-sm p-3 rounded-2xl flex items-center gap-3 text-left border border-[#EADDCC]">
               <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center shrink-0"><ShieldCheck size={20} /></div>
               <div>
-                <h3 className="text-xs font-black uppercase">Validation</h3>
-                <p className="text-[10px] text-gray-600 font-medium leading-tight">Soumis à l'accord de l'administration.</p>
+                <h3 className="text-xs font-black uppercase">{content?.block3_title || "Validation"}</h3>
+                <p className="text-[10px] text-gray-600 font-medium leading-tight">{content?.block3_text || "Soumis à l'accord de l'administration."}</p>
               </div>
             </div>
           </div>
 
-          {/* LE BOUTON D'ACTION (Visible sans scroller) */}
           <Link href="/calendrier" className="inline-flex items-center justify-center bg-black text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl text-xs md:text-sm group w-full md:w-auto max-w-sm mx-auto">
             <CalendarDays className="mr-2 w-5 h-5" />
-            Accéder au calendrier
+            Accéder à la réservation
             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
       </header>
 
-      {/* RESTE DU CONTENU (Scrollable) */}
       <main className="max-w-3xl mx-auto px-4 py-12">
-        {/* BLOC INFO EXTERNE */}
         <div className="bg-gray-900 text-white rounded-[24px] p-6 mb-12 flex flex-col sm:flex-row items-center justify-between shadow-xl relative overflow-hidden">
           <div className="absolute -right-4 -top-4 text-white/5 w-32 h-32"><Mail className="w-full h-full" /></div>
           <div className="relative z-10 sm:w-2/3 mb-4 sm:mb-0 text-center sm:text-left">
@@ -88,12 +86,11 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* FAQ ACCORDION */}
         <div className="text-center mb-6">
           <h2 className="text-2xl font-black uppercase tracking-tight">Questions fréquentes</h2>
         </div>
         <div className="space-y-3">
-          {faqs.map((faq, index) => (
+          {faqs.map((faq: any, index: number) => (
             <div key={index} className={`bg-white border transition-all duration-300 rounded-2xl overflow-hidden ${openFaq === index ? 'border-gray-300 shadow-md' : 'border-gray-100 hover:border-gray-200'}`}>
               <button onClick={() => setOpenFaq(openFaq === index ? null : index)} className="w-full px-5 py-4 flex items-center justify-between text-left">
                 <span className="font-bold text-gray-900 text-sm pr-4">{faq.question}</span>

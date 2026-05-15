@@ -2,24 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { 
-  format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
-  eachDayOfInterval, isSameDay, isBefore, startOfDay, addMonths, subMonths 
-} from "date-fns";
+import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfDay, addMonths, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
-import { 
-  ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, 
-  Calendar as CalendarIcon, DoorOpen, AlertTriangle 
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, Calendar as CalendarIcon, DoorOpen, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Turnstile } from '@marsidev/react-turnstile';
 
-const ROOM_ORDER = [
-  "Conférence 1", "Conférence 2", "Espace canapés", 
-  "Social Stairs", "Bureaux", "Grande salle", "Enfance"
-];
+const ROOM_ORDER = ["Conférence 1", "Conférence 2", "Espace canapés", "Social Stairs", "Bureaux", "Grande salle", "Enfance"];
 
-// GÉNÉRATEUR D'HORAIRES (Tranches de 15 min de 06:00 à 23:00)
 const generateTimeOptions = (minTimeStr = "06:00", isEnd = false, selectedDate = new Date()) => {
   const options = [];
   const now = new Date();
@@ -29,29 +19,22 @@ const generateTimeOptions = (minTimeStr = "06:00", isEnd = false, selectedDate =
 
   for (let h = 6; h <= 23; h++) {
     for (let m = 0; m < 60; m += 15) {
-      if (h === 23 && m > 0) continue; // Fin max stricte à 23:00
-
+      if (h === 23 && m > 0) continue;
       const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-      
       if (timeStr < minTimeStr) continue;
-      if (isEnd && timeStr === minTimeStr) continue; // L'heure de fin doit être > au début
-      
-      // Empêcher de réserver dans le passé pour la journée en cours
+      if (isEnd && timeStr === minTimeStr) continue;
       if (isToday && !isEnd) {
          if (h < currentHour || (h === currentHour && m <= currentMin)) continue;
       }
-      
       options.push(timeStr);
     }
   }
   return options;
 };
 
-// Fonction utilitaire pour ajouter des minutes
 const addMinutesToTimeStr = (timeStr: string, minsToAdd: number) => {
   const [h, m] = timeStr.split(':').map(Number);
-  const date = new Date(); 
-  date.setHours(h, m + minsToAdd, 0, 0);
+  const date = new Date(); date.setHours(h, m + minsToAdd, 0, 0);
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
@@ -67,17 +50,12 @@ export default function CalendarPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
-    space_id: "", first_name: "", last_name: "", user_email: "", 
-    phone: "+41 ", reason: "", start_time: "10:00", end_time: "10:15",
-    cgv_accepted: false
+    space_id: "", first_name: "", last_name: "", user_email: "", phone: "+41 ", reason: "", start_time: "10:00", end_time: "10:15", cgv_accepted: false
   });
 
   const today = startOfDay(new Date());
@@ -86,9 +64,7 @@ export default function CalendarPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape') { 
-        setIsModalOpen(false); setViewSpace(null); setIsSidebarOpen(false); setErrorMessage(""); 
-      }
+      if (e.key === 'Escape') { setIsModalOpen(false); setViewSpace(null); setIsSidebarOpen(false); setErrorMessage(""); }
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
@@ -99,14 +75,12 @@ export default function CalendarPage() {
       const { data: spacesData } = await supabase.from("spaces").select("*");
       if (spacesData) {
         const sorted = spacesData.sort((a, b) => {
-          let indexA = ROOM_ORDER.indexOf(a.name); 
-          let indexB = ROOM_ORDER.indexOf(b.name);
+          let indexA = ROOM_ORDER.indexOf(a.name); let indexB = ROOM_ORDER.indexOf(b.name);
           return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
         });
         setSpaces(sorted);
         if (sorted.length > 0) setFormData(prev => ({ ...prev, space_id: sorted[0].id }));
       }
-      
       const { data: contentData } = await supabase.from("site_content").select("intro_title, intro_paragraph").eq("id", 1).single();
       if (contentData) setSiteContent(contentData);
     };
@@ -116,8 +90,7 @@ export default function CalendarPage() {
   const fetchBookings = async () => {
     const start = new Date(currentDate); start.setHours(0, 0, 0, 0);
     const end = new Date(currentDate); end.setHours(23, 59, 59, 999);
-    const { data } = await supabase.from("bookings").select("*")
-      .gte("start_time", start.toISOString()).lte("start_time", end.toISOString());
+    const { data } = await supabase.from("bookings").select("*").gte("start_time", start.toISOString()).lte("start_time", end.toISOString());
     if (data) setBookings(data);
   };
 
@@ -125,10 +98,7 @@ export default function CalendarPage() {
 
   const openBookingModal = (spaceId = "") => {
     const options = generateTimeOptions("06:00", false, currentDate);
-    if (options.length === 0) { 
-      setErrorMessage("Plus aucun créneau n'est disponible pour aujourd'hui. Veuillez choisir un autre jour."); 
-      return; 
-    }
+    if (options.length === 0) { setErrorMessage("Plus aucun créneau disponible pour aujourd'hui."); return; }
     const startStr = options[0];
     const endStr = addMinutesToTimeStr(startStr, 15);
     setFormData({ ...formData, space_id: spaceId || spaces[0]?.id || "", start_time: startStr, end_time: endStr });
@@ -136,11 +106,7 @@ export default function CalendarPage() {
   };
 
   const handleSlotClick = (spaceId: string, hour: number) => {
-    let h = hour;
-    if (h < 6) h = 6;
-    if (h > 22) h = 22;
-
-    const startStr = `${String(h).padStart(2, '0')}:00`;
+    const startStr = `${String(hour).padStart(2, '0')}:00`;
     const endStr = addMinutesToTimeStr(startStr, 15);
     setFormData(prev => ({ ...prev, space_id: spaceId, start_time: startStr, end_time: endStr }));
     setIsModalOpen(true);
@@ -148,10 +114,7 @@ export default function CalendarPage() {
 
   const handleStartTimeChange = (newStartTime: string) => {
     let newEndTime = formData.end_time;
-    // Si la nouvelle heure de début est plus grande ou égale à l'heure de fin, on décale la fin de 15 min
-    if (newEndTime <= newStartTime) {
-      newEndTime = addMinutesToTimeStr(newStartTime, 15);
-    }
+    if (newEndTime <= newStartTime) newEndTime = addMinutesToTimeStr(newStartTime, 15);
     setFormData(prev => ({ ...prev, start_time: newStartTime, end_time: newEndTime }));
   };
 
@@ -187,26 +150,14 @@ export default function CalendarPage() {
       return; 
     }
 
-    fetch('/api/send-email', { 
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify({ type: 'NEW_REQUEST', booking_id: data?.[0]?.id, user_name: full_name, user_email: formData.user_email, space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason }) 
-    }).catch(console.error);
+    fetch('/api/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'NEW_REQUEST', booking_id: data?.[0]?.id, user_name: full_name, user_email: formData.user_email, space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason }) }).catch(console.error);
 
     setIsModalOpen(false); setShowSuccess(true); setCaptchaToken(null); fetchBookings(); 
   };
 
-  const returnHome = () => { setCurrentDate(today); setCurrentMonthView(today); setIsSidebarOpen(false); };
+  const returnHome = () => { window.location.href = "/"; };
   const openSpaceModal = (space: any) => { setViewSpace(space); setCurrentImageIndex(0); };
   const spaceImages = viewSpace?.image_url ? viewSpace.image_url.split(',').map((u: string) => u.trim()).filter(Boolean) : [];
-
-  const onTouchStart = (e: React.TouchEvent) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
-  const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX);
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    if (distance > 50) setCurrentImageIndex(p => (p + 1) % spaceImages.length);
-    if (distance < -50) setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1);
-  };
 
   const monthStart = startOfMonth(currentMonthView);
   const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart, { weekStartsOn: 1 }), end: endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 }) });
@@ -215,11 +166,10 @@ export default function CalendarPage() {
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
-      {/* HEADER MOBILE */}
       <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex justify-center items-center z-40 shrink-0 gap-3">
-        <Link href="/" className="cursor-pointer shrink-0"><img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" /></Link>
+        <div onClick={returnHome} className="cursor-pointer shrink-0"><img src="/Logo-Home_noir.png" alt="Logo Home" className="h-5 object-contain" /></div>
         <div className="w-[1px] h-4 bg-gray-300 shrink-0"></div>
-        <div className="flex items-center space-x-1.5 shrink-0"><DoorOpen size={14} className="text-gray-900" /><span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">Réservation</span></div>
+        <div className="flex items-center space-x-1.5 shrink-0"><DoorOpen size={14} className="text-gray-900" /><span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5 truncate">Spaces</span></div>
       </div>
 
       <div className="lg:hidden bg-[#F4E5D2] px-5 py-4 shrink-0 text-center border-b border-[#EADDCC] shadow-sm">
@@ -227,11 +177,10 @@ export default function CalendarPage() {
         <p className="text-[11px] text-black/80 font-medium leading-relaxed whitespace-pre-wrap">{siteContent.intro_paragraph}</p>
       </div>
 
-      {/* SIDEBAR DESKTOP */}
       <aside className="hidden lg:flex inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-8 border-b border-gray-100 flex flex-col items-center justify-center gap-5">
-          <Link href="/" className="cursor-pointer group hover:scale-105 transition-transform"><img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" /></Link>
-          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max"><DoorOpen size={14} className="text-gray-900" /><span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">Réservation</span></div>
+          <div onClick={returnHome} className="cursor-pointer group hover:scale-105 transition-transform"><img src="/Logo-Home_noir.png" alt="Logo Home" className="h-7 object-contain" /></div>
+          <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max"><DoorOpen size={14} className="text-gray-900" /><span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">Spaces</span></div>
         </div>
         <div className="p-6 flex-1 overflow-y-auto">
           <div className="bg-[#F4E5D2] rounded-2xl p-5 mb-6 border border-[#EADDCC] shadow-inner">
@@ -261,7 +210,6 @@ export default function CalendarPage() {
         </div>
       </aside>
 
-      {/* CALENDRIER MOBILE SIDEBAR */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden p-6 flex flex-col">
@@ -279,14 +227,16 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* GRILLE */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 relative">
         <header className="px-4 lg:px-8 py-4 flex items-center justify-between z-10 shrink-0 w-full gap-2">
           <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2.5 bg-white rounded-xl shadow-sm border border-gray-200"><CalendarIcon size={20} /></button>
           <div className="flex-1 flex justify-center lg:justify-start">
             <div className="flex items-center justify-between w-full max-w-[240px] bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm h-12">
               <button onClick={() => {if(!isBefore(subDays(currentDate, 1), today)) setCurrentDate(subDays(currentDate, 1))}} className="p-2 hover:bg-gray-100 rounded-xl transition"><ChevronLeft size={18}/></button>
-              <div onClick={() => setIsSidebarOpen(true)} className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate"><span className="text-[13px] sm:text-lg font-black capitalize truncate">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span></div>
+              <div onClick={() => setIsSidebarOpen(true)} className="flex-1 text-center cursor-pointer hover:opacity-70 transition-opacity px-2 truncate">
+                <span className="text-[13px] sm:text-lg font-black capitalize truncate hidden sm:block">{format(currentDate, "EEEE d MMMM", { locale: fr })}</span>
+                <span className="text-[13px] sm:text-lg font-black capitalize truncate sm:hidden">{format(currentDate, "EE d MMM", { locale: fr })}</span>
+              </div>
               <button onClick={() => setCurrentDate(addDays(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-xl transition"><ChevronRight size={18}/></button>
             </div>
           </div>
@@ -340,32 +290,31 @@ export default function CalendarPage() {
         </main>
       </div>
 
-      {/* MODAL PHOTOS SALLE AVEC CARROUSEL OPTIMISÉ */}
       {viewSpace && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setViewSpace(null)}}>
           <div className="bg-white rounded-[32px] overflow-hidden shadow-2xl w-full max-w-lg animate-in zoom-in-95 duration-200">
-            <div className="relative h-64 bg-gray-100 flex items-center justify-center group" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+            <div className="relative h-72 bg-gray-100 flex items-center justify-center group">
               {spaceImages.length > 0 ? (
                 <>
-                  <img src={spaceImages[currentImageIndex]} className="w-full h-full object-cover select-none pointer-events-none" />
-                  
+                  <a href={spaceImages[currentImageIndex]} target="_blank" rel="noopener noreferrer" className="w-full h-full block cursor-zoom-in">
+                    <img src={spaceImages[currentImageIndex]} className="w-full h-full object-cover" />
+                  </a>
                   {spaceImages.length > 1 && (
                     <>
-                      <div className="absolute inset-x-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)} className="p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition"><ChevronLeft size={20}/></button>
-                        <button onClick={() => setCurrentImageIndex(p => (p + 1) % spaceImages.length)} className="p-2 bg-white/80 rounded-full shadow-md hover:bg-white transition"><ChevronRight size={20}/></button>
+                      <div className="absolute inset-x-4 flex justify-between items-center opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <button onClick={(e) => {e.stopPropagation(); setCurrentImageIndex(p => p === 0 ? spaceImages.length - 1 : p - 1)}} className="p-3 bg-white/90 rounded-full shadow-md hover:bg-white transition pointer-events-auto"><ChevronLeft size={24}/></button>
+                        <button onClick={(e) => {e.stopPropagation(); setCurrentImageIndex(p => (p + 1) % spaceImages.length)}} className="p-3 bg-white/90 rounded-full shadow-md hover:bg-white transition pointer-events-auto"><ChevronRight size={24}/></button>
                       </div>
-                      
-                      <div className="absolute bottom-4 flex space-x-1.5">
+                      <div className="absolute bottom-4 flex space-x-2">
                         {spaceImages.map((_: any, idx: number) => (
-                          <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`} />
+                          <div key={idx} className={`h-2 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'bg-white w-4' : 'bg-white/50 w-2'}`} />
                         ))}
                       </div>
                     </>
                   )}
                 </>
               ) : <Info className="w-10 h-10 text-gray-300" />}
-              <button onClick={() => setViewSpace(null)} className="absolute top-4 right-4 p-2 bg-white/80 rounded-full shadow-sm"><X size={20}/></button>
+              <button onClick={() => setViewSpace(null)} className="absolute top-4 right-4 p-2 bg-white/90 rounded-full shadow-sm hover:bg-white"><X size={20}/></button>
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-black uppercase mb-2" style={{ color: viewSpace.color }}>{viewSpace.name}</h2>
@@ -377,7 +326,6 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* MODAL RÉSERVATION (AVEC SELECT 15 MIN) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -395,7 +343,6 @@ export default function CalendarPage() {
                 </select>
               </div>
               
-              {/* SÉLECTEURS D'HEURE 15 MIN */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label>
@@ -433,7 +380,6 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* MODAL ERREUR GLOBALE */}
       {errorMessage && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[150] p-4" onMouseDown={() => setErrorMessage("")}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20" onMouseDown={e => e.stopPropagation()}>
@@ -449,7 +395,6 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* MODAL SUCCÈS */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={() => setShowSuccess(false)}>
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 text-center border">
