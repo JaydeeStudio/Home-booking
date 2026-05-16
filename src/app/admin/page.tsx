@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
@@ -15,13 +14,17 @@ import {
   isSameDay, 
   startOfDay, 
   addMonths, 
-  subMonths 
+  subMonths,
+  addYears,
+  subYears
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { 
   LogOut, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronsLeft,
+  ChevronsRight,
   X, 
   Trash2, 
   CheckCircle2, 
@@ -567,22 +570,14 @@ export default function AdminPage() {
         <div className="p-6 flex-1 overflow-y-auto flex flex-col">
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-6 shrink-0">
             <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-sm capitalize">
+              <span className="font-bold text-sm capitalize text-gray-900">
                 {format(currentMonthView, "MMMM yyyy", { locale: fr })}
               </span>
-              <div className="flex space-x-1">
-                <button 
-                  onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} 
-                  className="p-1 hover:bg-gray-200 rounded-md"
-                >
-                  <ChevronLeft size={16}/>
-                </button>
-                <button 
-                  onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} 
-                  className="p-1 hover:bg-gray-200 rounded-md"
-                >
-                  <ChevronRight size={16}/>
-                </button>
+              <div className="flex space-x-0.5">
+                <button onClick={() => setCurrentMonthView(subYears(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsLeft className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronLeft className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronRight className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentMonthView(addYears(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsRight className="w-4 h-4" /></button>
               </div>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center mb-2">
@@ -650,16 +645,14 @@ export default function AdminPage() {
             
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 shrink-0">
               <div className="flex justify-between items-center mb-4">
-                <span className="font-bold text-sm capitalize">
+                <span className="font-bold text-sm capitalize text-gray-900">
                   {format(currentMonthView, "MMMM yyyy", { locale: fr })}
                 </span>
-                <div className="flex space-x-1">
-                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition">
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition">
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                <div className="flex space-x-0.5">
+                  <button onClick={() => setCurrentMonthView(subYears(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(addYears(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsRight className="w-4 h-4" /></button>
                 </div>
               </div>
               <div className="grid grid-cols-7 gap-1 text-center mb-2">
@@ -780,7 +773,7 @@ export default function AdminPage() {
               placeholder="Rechercher (nom, salle...)" 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
-              className="pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm" 
+              className="pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm h-[52px]" 
             />
           </div>
           {pendingBookings.length > 0 && (
@@ -812,7 +805,7 @@ export default function AdminPage() {
 
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
           {searchTerm ? (
-             <div className="h-full bg-white rounded-3xl border border-gray-200 shadow-sm p-8 overflow-auto mt-2 lg:mt-0">
+             <div className="h-full bg-white rounded-[32px] border border-gray-200 shadow-sm p-8 overflow-auto mt-2 lg:mt-0">
                 <div className="flex items-center justify-between mb-8 border-b pb-4">
                   <h2 className="text-2xl font-black">Résultats : "{searchTerm}"</h2>
                   <button 
@@ -909,7 +902,7 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* MODAL BLOCAGE MULTIPLE (AVEC SELECTEURS A 15 MIN) */}
+      {/* MODAL BLOCAGE MULTIPLE (AVEC HAUTEUR FIXE) */}
       {showBlockModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
@@ -936,7 +929,7 @@ export default function AdminPage() {
                   name="start_date" 
                   required 
                   defaultValue={format(currentDate, "yyyy-MM-dd")} 
-                  className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" 
+                  className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold focus:bg-white outline-none" 
                 />
               </div>
 
@@ -987,7 +980,7 @@ export default function AdminPage() {
                   onChange={e => setBlockData({...blockData, title: e.target.value})} 
                   placeholder="Ex: Célébrations" 
                   required 
-                  className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" 
+                  className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold focus:bg-white outline-none" 
                 />
               </div>
 
@@ -1000,7 +993,7 @@ export default function AdminPage() {
                     name="recurrence" 
                     value={recurrenceOption} 
                     onChange={(e) => setRecurrenceOption(e.target.value)} 
-                    className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none cursor-pointer"
+                    className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold focus:bg-white outline-none cursor-pointer"
                   >
                     <option value="none">Une seule fois</option>
                     <option value="daily">Tous les jours</option>
@@ -1017,7 +1010,7 @@ export default function AdminPage() {
                       type="date" 
                       name="end_recurrence" 
                       required 
-                      className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" 
+                      className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold focus:bg-white outline-none" 
                     />
                   </div>
                 )}
@@ -1048,7 +1041,7 @@ export default function AdminPage() {
 
               <button 
                 type="submit" 
-                className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-4 rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm"
+                className="w-full h-[52px] bg-indigo-600 text-white font-black uppercase tracking-widest rounded-2xl mt-4 hover:scale-[1.02] shadow-xl shadow-indigo-600/20 transition-all text-sm"
               >
                 Bloquer ces créneaux
               </button>
@@ -1094,13 +1087,13 @@ export default function AdminPage() {
             <div className="flex gap-3 shrink-0">
               <button 
                 onClick={() => setConflictModal(false)} 
-                className="flex-1 p-4 bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider"
+                className="flex-1 h-[52px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider"
               >
                 Annuler
               </button>
               <button 
                 onClick={() => executeBlockInsertion(pendingBlocks)} 
-                className="flex-1 p-4 bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
+                className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
               >
                 Forcer
               </button>
@@ -1120,7 +1113,7 @@ export default function AdminPage() {
             <p className="text-gray-500 font-medium mb-8">{blockSuccessMessage}</p>
             <button 
               onClick={() => setBlockSuccessMessage("")} 
-              className="w-full bg-indigo-600 text-white font-black py-5 rounded-3xl hover:scale-105 transition-transform flex items-center justify-center"
+              className="w-full h-[56px] bg-indigo-600 text-white font-black rounded-3xl hover:scale-105 transition-transform flex items-center justify-center"
             >
               Parfait <ChevronRight className="ml-2 w-5 h-5" />
             </button>
@@ -1128,7 +1121,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* MODAL GESTION RESERVATION */}
+      {/* MODAL GESTION RESERVATION (AVEC HAUTEUR FIXE) */}
       {selectedBooking && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans max-h-[90vh] overflow-y-auto border border-white/20">
@@ -1156,7 +1149,7 @@ export default function AdminPage() {
                         </label>
                         <input 
                           required 
-                          className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none" 
+                          className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold focus:bg-white outline-none" 
                           value={editData.user_name} 
                           onChange={e => setEditData({...editData, user_name: e.target.value})} 
                         />
@@ -1166,7 +1159,7 @@ export default function AdminPage() {
                           Espace
                         </label>
                         <select 
-                          className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 font-bold focus:bg-white outline-none cursor-pointer" 
+                          className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold focus:bg-white outline-none cursor-pointer" 
                           value={editData.space_id} 
                           onChange={e => setEditData({...editData, space_id: e.target.value})}
                         >
@@ -1314,7 +1307,7 @@ export default function AdminPage() {
             <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">{errorMessage}</p>
             <button 
               onClick={() => setErrorMessage("")} 
-              className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg"
+              className="w-full h-[56px] bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg"
             >
               Compris
             </button>

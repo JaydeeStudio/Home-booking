@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { 
   format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
-  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths
+  eachDayOfInterval, isSameMonth, isSameDay, isBefore, startOfDay, addMonths, subMonths,
+  addYears, subYears
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { 
-  ChevronLeft, ChevronRight, Plus, X, CheckCircle2, Clock, Info, 
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Plus, X, CheckCircle2, Clock, Info, 
   Calendar as CalendarIcon, DoorOpen, AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
