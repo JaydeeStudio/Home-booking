@@ -299,10 +299,14 @@ export default function CalendarPage() {
 
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-xs capitalize text-gray-900">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-              <div className="flex space-x-1">
-                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronLeft className="w-4 h-4" /></button>
-                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition"><ChevronRight className="w-4 h-4" /></button>
+              <span className="font-bold text-sm capitalize text-gray-900">
+                {format(currentMonthView, "MMMM yyyy", { locale: fr })}
+              </span>
+              <div className="flex space-x-0.5">
+                <button onClick={() => setCurrentMonthView(subYears(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsLeft className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronLeft className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronRight className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentMonthView(addYears(currentMonthView, 1))} className="p-1.5 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsRight className="w-4 h-4" /></button>
               </div>
             </div>
             <div className="grid grid-cols-7 gap-1 text-center mb-2">{['Lu','Ma','Me','Je','Ve','Sa','Di'].map(d => <div key={d} className="text-[9px] font-bold text-gray-400">{d}</div>)}</div>
@@ -335,10 +339,14 @@ export default function CalendarPage() {
             
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
               <div className="flex justify-between items-center mb-4">
-                <span className="font-bold text-sm capitalize">{format(currentMonthView, "MMMM yyyy", { locale: fr })}</span>
-                <div className="flex space-x-1">
-                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1"><ChevronRight className="w-4 h-4" /></button>
+                <span className="font-bold text-sm capitalize text-gray-900">
+                  {format(currentMonthView, "MMMM yyyy", { locale: fr })}
+                </span>
+                <div className="flex space-x-0.5">
+                  <button onClick={() => setCurrentMonthView(subYears(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(subMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(addMonths(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-700"><ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={() => setCurrentMonthView(addYears(currentMonthView, 1))} className="p-1 hover:bg-gray-200 rounded-md transition text-gray-400 hover:text-gray-900"><ChevronsRight className="w-4 h-4" /></button>
                 </div>
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -485,7 +493,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* MODAL RÉSERVATION (AVEC SELECT 15 MIN - CHOIX 2) */}
+      {/* MODAL RÉSERVATION */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto border border-white/20">
@@ -498,12 +506,11 @@ export default function CalendarPage() {
               
               <div>
                 <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Espace *</label>
-                <select className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
+                <select className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
                   {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               
-              {/* LA LISTE DE SELECT (CHOIX 2 : STRICT) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label>
@@ -516,7 +523,7 @@ export default function CalendarPage() {
                       if (newEnd <= newStart) newEnd = addMinutesToTimeStr(newStart, 15);
                       setFormData({...formData, start_time: newStart, end_time: newEnd});
                     }} 
-                    className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer" 
+                    className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer" 
                   >
                     {generateTimeOptions("06:00", false, currentDate).map(time => (
                       <option key={time} value={time}>{time}</option>
@@ -529,7 +536,7 @@ export default function CalendarPage() {
                     required 
                     value={formData.end_time} 
                     onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
-                    className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer" 
+                    className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer" 
                   >
                     {generateTimeOptions(formData.start_time, true, currentDate).map(time => (
                       <option key={time} value={time}>{time}</option>
@@ -539,14 +546,14 @@ export default function CalendarPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
               </div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none outline-none focus:ring-2 focus:ring-gray-200" /></div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium h-24 resize-none outline-none focus:ring-2 focus:ring-gray-200" /></div>
               <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-200">
                 <input type="checkbox" required checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer accent-black" />
                 <label className="ml-3 text-[11px] text-gray-600 font-medium">J'accepte les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link>.</label>
@@ -569,7 +576,7 @@ export default function CalendarPage() {
             </div>
             <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Oups !</h2>
             <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">{errorMessage}</p>
-            <button onClick={() => setErrorMessage("")} className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
+            <button onClick={() => setErrorMessage("")} className="w-full h-[52px] bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
               Compris
             </button>
           </div>
@@ -583,7 +590,7 @@ export default function CalendarPage() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-10 h-10 text-green-600" /></div>
             <h2 className="text-3xl font-black text-gray-900 mb-2">Reçue !</h2>
             <p className="text-gray-500 font-medium mb-8 text-sm leading-relaxed">Votre demande est en cours de validation par notre administration.</p>
-            <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-colors">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
+            <button onClick={() => setShowSuccess(false)} className="w-full h-[52px] bg-black text-white font-black rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-colors">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
           </div>
         </div>
       )}
