@@ -173,7 +173,6 @@ export default function AdminPage() {
     }
   }, [user]);
 
-  // ON RÉCUPÈRE TOUTES LES RÉSERVATIONS POUR AVOIR LA LISTE GLOBALE
   const fetchBookings = async () => {
     const { data } = await supabase.from("bookings").select("*, spaces(name, color)");
     if (data) setBookings(data);
@@ -196,7 +195,6 @@ export default function AdminPage() {
 
   const openBookingModal = (b: any) => {
     const bookingDate = new Date(b.start_time);
-    // ON BASCULE LE CALENDRIER SUR LA DATE DE LA DEMANDE
     setCurrentDate(bookingDate);
     setCurrentMonthView(startOfMonth(bookingDate));
     
@@ -210,6 +208,20 @@ export default function AdminPage() {
       start_time: format(bookingDate, "HH:mm"), 
       end_time: format(new Date(b.end_time), "HH:mm") 
     });
+  };
+
+  // NOUVEAUTÉ : Permet de cliquer sur la grille pour bloquer un créneau vide
+  const handleAdminSlotClick = (spaceId: string, hour: number) => {
+    let h = hour;
+    if (h < 6) h = 6;
+    if (h > 22) h = 22;
+
+    const startStr = h.toString().padStart(2, '0') + ":00";
+    const endStr = (h + 1 > 23 ? 23 : h + 1).toString().padStart(2, '0') + ":00";
+    
+    setBlockData({ title: "Bloqué (Maintenance/Event)", start_time: startStr, end_time: endStr });
+    setSelectedSpacesToBlock([spaceId]);
+    setShowBlockModal(true);
   };
 
   const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
@@ -332,7 +344,6 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    // PLUS DE BLOCAGE SI L'ADMIN S'AUTO-VALIDE POUR POUVOIR TESTER
     if(!booking.user_email) return; 
     
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
@@ -508,7 +519,8 @@ export default function AdminPage() {
     end: endOfWeek(monthEnd, { weekStartsOn: 1 }) 
   });
   
-  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
+  // CORRECTION DE L'HEURE (6h00 au lieu de 8h00)
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6);
 
   if (loading) return null;
   
@@ -532,6 +544,9 @@ export default function AdminPage() {
       </div>
     </div>
   );
+
+  // VÉRIFICATION DES CONFLITS POUR LA MODALE
+  const hasConfirmedConflict = conflictingBookings.some(b => b.status === 'confirmed');
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
@@ -642,9 +657,9 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* MODAL CALENDRIER ADMIN (MOBILE UNIQUEMENT) */}
+      {/* MODAL CALENDRIER MOBILE */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-6 shrink-0">
               <h2 className="text-lg font-black uppercase tracking-tight text-gray-900">Choisir une date</h2>
@@ -882,10 +897,14 @@ export default function AdminPage() {
                           {h}:00
                         </td>
                         {spaces.map(space => {
-                          // ON UTILISE ISSAMEDAY ICI POUR N'AFFICHER QUE CEUX DU JOUR SÉLECTIONNÉ
                           const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
                           return (
-                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 bg-white hover:bg-gray-50 transition-colors">
+                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 group bg-white hover:bg-gray-50 transition-colors">
+                              {/* Raccourci de clic sur grille vide pour bloquer rapidement */}
+                              <div onClick={() => handleAdminSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer">
+                                <Lock size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                              
                               {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                                 <div 
                                   key={b.id} 
@@ -913,9 +932,9 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* MODAL BLOCAGE MULTIPLE (AVEC HAUTEUR FIXE) */}
+      {/* MODAL BLOCAGE MULTIPLE */}
       {showBlockModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900 flex items-center">
@@ -944,7 +963,6 @@ export default function AdminPage() {
                 />
               </div>
 
-              {/* SÉLECTEURS 15 MIN */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">
@@ -1063,7 +1081,7 @@ export default function AdminPage() {
 
       {/* MODAL ALERTE CONFLIT */}
       {conflictModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setConflictModal(false)}}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[120] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setConflictModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-6 shrink-0">
               <h2 className="text-xl font-black uppercase tracking-tight text-red-600 flex items-center">
@@ -1076,8 +1094,11 @@ export default function AdminPage() {
                 <X className="w-5 h-5"/>
               </button>
             </div>
+            
             <p className="text-sm text-gray-600 mb-6 font-medium leading-relaxed">
-              Les réservations suivantes chevauchent les créneaux que vous essayez de bloquer. Voulez-vous tout de même forcer le blocage ?
+              {hasConfirmedConflict 
+                ? "Impossible de bloquer : certains créneaux sont déjà validés sur cette période. Vous devez d'abord les annuler ou les déplacer."
+                : "Les réservations (en attente) suivantes chevauchent les créneaux que vous essayez de bloquer. Voulez-vous tout de même forcer le blocage ?"}
             </p>
             
             <div className="flex-1 overflow-auto mb-6 space-y-3 bg-red-50/50 p-4 rounded-2xl border border-red-100">
@@ -1102,12 +1123,14 @@ export default function AdminPage() {
               >
                 Annuler
               </button>
-              <button 
-                onClick={() => executeBlockInsertion(pendingBlocks)} 
-                className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
-              >
-                Forcer
-              </button>
+              {!hasConfirmedConflict && (
+                <button 
+                  onClick={() => executeBlockInsertion(pendingBlocks)} 
+                  className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
+                >
+                  Forcer
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1115,7 +1138,7 @@ export default function AdminPage() {
 
       {/* MODAL SUCCESS BLOCAGE */}
       {blockSuccessMessage && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[110] p-4" onMouseDown={() => setBlockSuccessMessage("")}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[110] p-4" onMouseDown={() => setBlockSuccessMessage("")}>
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden p-10 text-center border">
             <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-12 h-12 text-indigo-600" />
@@ -1132,9 +1155,9 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* MODAL GESTION RESERVATION (AVEC HAUTEUR FIXE) */}
+      {/* MODAL GESTION RESERVATION */}
       {selectedBooking && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans max-h-[90vh] overflow-y-auto border border-white/20">
              
              <div className="flex justify-between items-center mb-6">
@@ -1181,7 +1204,6 @@ export default function AdminPage() {
                       </div>
                     </div>
                     
-                    {/* SÉLECTEURS MODIFICATION (CHOIX 2 : STRICTEMENT 15 MIN) */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">
