@@ -106,6 +106,7 @@ export default function AdminPage() {
   const [conflictModal, setConflictModal] = useState(false);
   const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
   const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
+  const [conflictMessage, setConflictMessage] = useState(""); // NOUVEAU : Message d'annulation forcé
   const [errorMessage, setErrorMessage] = useState("");
   
   const [editData, setEditData] = useState({ 
@@ -187,6 +188,7 @@ export default function AdminPage() {
         setBlockSuccessMessage(""); 
         setIsSidebarOpen(false); 
         setConflictModal(false);
+        setConflictMessage("");
       }
     };
     window.addEventListener('keydown', handleEsc);
@@ -450,11 +452,33 @@ export default function AdminPage() {
     executeBlockInsertion(blocks);
   };
 
+  // NOUVEAU : Fonction de Forçage (Suppression des conflits + Notification + Blocage)
+  const handleForceBlock = async () => {
+    // 1. On supprime les réservations existantes et on notifie
+    for (const booking of conflictingBookings) {
+      const { error } = await supabase.from("bookings").delete().eq("id", booking.id);
+      if (!error) {
+        await notifyUser('DELETED', booking, conflictMessage || "L'administration a dû bloquer ce créneau pour une raison impérative (maintenance ou événement).");
+        
+        if (booking.google_event_id) {
+          fetch('/api/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', booking })
+          }).catch(err => console.error("Erreur Calendar:", err));
+        }
+      }
+    }
+    // 2. On insère notre blocage tranquillement
+    setConflictMessage("");
+    executeBlockInsertion(pendingBlocks);
+  };
+
   const executeBlockInsertion = async (blocksToInsert: any[]) => {
     const { data: insertedBlocks, error } = await supabase.from("bookings").insert(blocksToInsert).select();
     
     if (error) {
-      setErrorMessage("Impossible d'enregistrer le blocage. Vérifiez qu'il n'y ait pas déjà un événement validé à cet horaire.");
+      setErrorMessage("Impossible d'enregistrer le blocage. " + error.message);
     } else { 
       if (insertedBlocks && insertedBlocks.length > 0) {
         insertedBlocks.forEach(block => {
@@ -517,7 +541,6 @@ export default function AdminPage() {
     end: endOfWeek(monthEnd, { weekStartsOn: 1 }) 
   });
   
-  // Correction ici : on passe de 18 créneaux commençant à 6h (comme la page publique)
   const hours = Array.from({ length: 18 }, (_, i) => i + 6);
 
   if (loading) return null;
@@ -895,7 +918,6 @@ export default function AdminPage() {
                           const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
                           return (
                             <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 group bg-white hover:bg-gray-50 transition-colors">
-                              {/* Raccourci de clic sur grille vide pour bloquer rapidement */}
                               <div onClick={() => handleAdminSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer">
                                 <Lock size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
@@ -927,7 +949,7 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* MODAL BLOCAGE MULTIPLE (AVEC HAUTEUR FIXE) */}
+      {/* MODAL BLOCAGE MULTIPLE */}
       {showBlockModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
@@ -958,7 +980,6 @@ export default function AdminPage() {
                 />
               </div>
 
-              {/* SÉLECTEURS 15 MIN */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">
@@ -1081,7 +1102,7 @@ export default function AdminPage() {
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-6 shrink-0">
               <h2 className="text-xl font-black uppercase tracking-tight text-red-600 flex items-center">
-                <AlertTriangle className="mr-2" size={24}/> Conflits détectés
+                <AlertTriangle className="mr-2" size={24}/> Conflit détecté
               </h2>
               <button 
                 onClick={() => setConflictModal(false)} 
@@ -1092,16 +1113,21 @@ export default function AdminPage() {
             </div>
             
             <p className="text-sm text-gray-600 mb-6 font-medium leading-relaxed">
-              Attention, vous essayez de bloquer un créneau qui superpose déjà des réservations existantes (en attente ou validées) listées ci-dessous.<br/><br/>
-              Voulez-vous tout de même forcer le blocage par-dessus ces demandes ?
+              Le créneau que vous tentez de bloquer superpose les réservations ci-dessous.<br/><br/>
+              Si vous forcez le blocage, ces réservations seront <strong>automatiquement annulées</strong> et un e-mail sera envoyé aux demandeurs.
             </p>
             
             <div className="flex-1 overflow-auto mb-6 space-y-3 bg-red-50/50 p-4 rounded-2xl border border-red-100">
               {conflictingBookings.map((b, i) => (
                 <div key={i} className="p-3 bg-white border border-red-200 rounded-xl shadow-sm">
-                  <span className="text-[9px] font-black px-2 py-0.5 rounded bg-red-100 text-red-700 mb-1 inline-block uppercase tracking-wider">
-                    {b.spaces?.name}
-                  </span>
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-red-100 text-red-700 inline-block uppercase tracking-wider">
+                      {b.spaces?.name}
+                    </span>
+                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {b.status === 'confirmed' ? 'Validé' : 'En attente'}
+                    </span>
+                  </div>
                   <p className="font-bold text-sm text-gray-900">{b.user_name}</p>
                   <p className="text-xs text-gray-500 mt-1 flex items-center">
                     <Clock size={12} className="mr-1"/> 
@@ -1109,6 +1135,18 @@ export default function AdminPage() {
                   </p>
                 </div>
               ))}
+            </div>
+
+            <div className="mb-6">
+              <label className="text-[10px] font-black uppercase text-gray-400 block mb-2">
+                Motif de l'annulation (envoyé par e-mail)
+              </label>
+              <textarea 
+                placeholder="Ex: Problème technique de dernière minute nécessitant l'intervention d'un technicien." 
+                className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500 outline-none transition-all font-medium h-24 resize-none" 
+                value={conflictMessage} 
+                onChange={e => setConflictMessage(e.target.value)} 
+              />
             </div>
 
             <div className="flex gap-3 shrink-0">
@@ -1119,8 +1157,8 @@ export default function AdminPage() {
                 Annuler
               </button>
               <button 
-                onClick={() => executeBlockInsertion(pendingBlocks)} 
-                className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
+                onClick={handleForceBlock} 
+                className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider flex items-center justify-center"
               >
                 Forcer
               </button>
@@ -1197,7 +1235,6 @@ export default function AdminPage() {
                       </div>
                     </div>
                     
-                    {/* SÉLECTEURS MODIFICATION (CHOIX 2 : STRICTEMENT 15 MIN) */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">
