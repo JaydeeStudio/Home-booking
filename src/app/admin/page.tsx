@@ -36,7 +36,8 @@ import {
   Lock, 
   AlertTriangle, 
   Calendar as CalendarIcon, 
-  DoorOpen 
+  DoorOpen,
+  Plus
 } from "lucide-react";
 
 // LA LISTE BLANCHE DES EMAILS
@@ -173,10 +174,23 @@ export default function AdminPage() {
     }
   }, [user]);
 
+  // CORRECTION #1: On filtre les réservations sur la journée en cours lors du fetch,
+  // ce qui évite de devoir utiliser isSameDay() dans le rendu de la grille.
   const fetchBookings = async () => {
-    const { data } = await supabase.from("bookings").select("*, spaces(name, color)");
+    const start = new Date(currentDate); start.setHours(0, 0, 0, 0);
+    const end = new Date(currentDate); end.setHours(23, 59, 59, 999);
+    
+    // On ne récupère QUE les réservations du jour affiché
+    const { data } = await supabase.from("bookings").select("*, spaces(name, color)")
+      .gte("start_time", start.toISOString()).lte("start_time", end.toISOString());
+      
     if (data) setBookings(data);
   };
+
+  // Re-fetch quand on change de jour
+  useEffect(() => {
+    if(user) fetchBookings();
+  }, [currentDate]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { 
@@ -245,6 +259,8 @@ export default function AdminPage() {
     await notifyUser('CONFIRMED', booking, adminMessage);
     
     if (booking.google_event_id) {
+      // CORRECTION #3 : Sécurisation de l'envoi des données à Google Calendar
+      const spaceObj = spaces.find(s => s.id === booking.space_id);
       fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +269,8 @@ export default function AdminPage() {
           booking: { 
             ...booking, 
             status: 'confirmed',
-            space_name: booking.spaces?.name 
+            space_name: booking.spaces?.name || spaceObj?.name,
+            space_color: booking.spaces?.color || spaceObj?.color
           } 
         })
       }).catch(err => console.error("Erreur Calendar:", err));
@@ -311,7 +328,8 @@ export default function AdminPage() {
             status: 'confirmed', 
             start_time: st.toISOString(), 
             end_time: et.toISOString(),
-            space_name: spaceObj?.name
+            space_name: spaceObj?.name,
+            space_color: spaceObj?.color
           } 
         })
       }).catch(err => console.error("Erreur Calendar Update:", err));
@@ -323,7 +341,9 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    if(!booking.user_email || booking.user_email === user?.email) return; 
+    // CORRECTION #2 : On supprime la vérification `booking.user_email === user?.email`
+    // pour que l'email de test parte même si l'admin s'auto-valide.
+    if(!booking.user_email) return; 
     
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
     
@@ -872,9 +892,11 @@ export default function AdminPage() {
                           {h}:00
                         </td>
                         {spaces.map(space => {
-                          const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
+                          // CORRECTION #1 (Grille Admin) : Les réservations de la journée sont déjà filtrées, on n'utilise plus isSameDay ici.
+                          const spaceBookings = bookings.filter(b => b.space_id === space.id);
                           return (
                             <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 bg-white hover:bg-gray-50 transition-colors">
+                              {/* Rendu des créneaux validés ou en attente */}
                               {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                                 <div 
                                   key={b.id} 
@@ -886,7 +908,7 @@ export default function AdminPage() {
                                     backgroundColor: space.color 
                                   }}
                                 >
-                                  {b.user_name}
+                                  {b.user_name} {b.status === 'pending' && <span className="block opacity-70 text-[8px] mt-0.5 uppercase tracking-wider">Attente</span>}
                                 </div>
                               ))}
                             </td>
