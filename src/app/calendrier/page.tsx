@@ -69,6 +69,7 @@ export default function CalendarPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false); // AJOUT DU CHARGEMENT
   
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -155,17 +156,21 @@ export default function CalendarPage() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.cgv_accepted || !captchaToken) return;
+    if (!formData.cgv_accepted || !captchaToken || isSubmitting) return;
+
+    setIsSubmitting(true);
 
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
     const end = new Date(currentDate); const [eh, em] = formData.end_time.split(':'); end.setHours(parseInt(eh), parseInt(em), 0);
     
     if (start < new Date()) { 
       setErrorMessage("Impossible de réserver dans le passé. Veuillez choisir un horaire futur."); 
+      setIsSubmitting(false);
       return; 
     }
     if (end <= start) { 
       setErrorMessage("L'heure de fin doit obligatoirement être après l'heure de début."); 
+      setIsSubmitting(false);
       return; 
     }
 
@@ -205,6 +210,7 @@ export default function CalendarPage() {
       } else {
         setErrorMessage("Une erreur est survenue : " + error.message); 
       }
+      setIsSubmitting(false);
       return; 
     }
 
@@ -217,7 +223,11 @@ export default function CalendarPage() {
       })
     }).catch(console.error);
 
-    setIsModalOpen(false); setShowSuccess(true); setCaptchaToken(null); fetchBookings(); 
+    setIsModalOpen(false); 
+    setShowSuccess(true); 
+    setCaptchaToken(null); 
+    setIsSubmitting(false);
+    fetchBookings(); 
   };
 
   const returnHome = () => { window.location.href = "/"; };
@@ -495,27 +505,29 @@ export default function CalendarPage() {
 
       {/* MODAL RÉSERVATION */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsModalOpen(false)}}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget && !isSubmitting) setIsModalOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto border border-white/20">
             <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
               <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Demande de réservation</h2>
-              <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-100 p-2 rounded-full"><X size={20}/></button>
+              <button type="button" onClick={() => {if(!isSubmitting) setIsModalOpen(false)}} className="bg-gray-100 p-2 rounded-full disabled:opacity-50"><X size={20}/></button>
             </div>
             <form onSubmit={handleBookingSubmit} className="p-6 space-y-5">
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-sm font-black text-gray-800 capitalize">{format(currentDate, "EEEE d MMMM yyyy", { locale: fr })}</div>
               
               <div>
                 <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Espace *</label>
-                <select className="w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required>
+                <select className="w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200" value={formData.space_id} onChange={(e) => setFormData({...formData, space_id: e.target.value})} required disabled={isSubmitting}>
                   {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               
+              {/* LA LISTE DE SELECT (CHOIX 2 : STRICT) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Début *</label>
                   <select 
                     required 
+                    disabled={isSubmitting}
                     value={formData.start_time} 
                     onChange={(e) => {
                       const newStart = e.target.value;
@@ -523,7 +535,7 @@ export default function CalendarPage() {
                       if (newEnd <= newStart) newEnd = addMinutesToTimeStr(newStart, 15);
                       setFormData({...formData, start_time: newStart, end_time: newEnd});
                     }} 
-                    className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer" 
+                    className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer disabled:opacity-50" 
                   >
                     {generateTimeOptions("06:00", false, currentDate).map(time => (
                       <option key={time} value={time}>{time}</option>
@@ -534,9 +546,10 @@ export default function CalendarPage() {
                   <label className="block text-[10px] font-black text-gray-400 uppercase mb-1.5">Fin *</label>
                   <select 
                     required 
+                    disabled={isSubmitting}
                     value={formData.end_time} 
                     onChange={(e) => setFormData({...formData, end_time: e.target.value})} 
-                    className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer" 
+                    className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-gray-200 cursor-pointer disabled:opacity-50" 
                   >
                     {generateTimeOptions(formData.start_time, true, currentDate).map(time => (
                       <option key={time} value={time}>{time}</option>
@@ -546,22 +559,42 @@ export default function CalendarPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label><input type="text" disabled={isSubmitting} required value={formData.first_name} onChange={(e) => setFormData({...formData, first_name: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label><input type="text" disabled={isSubmitting} required value={formData.last_name} onChange={(e) => setFormData({...formData, last_name: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
-                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label><input type="email" disabled={isSubmitting} required value={formData.user_email} onChange={(e) => setFormData({...formData, user_email: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" /></div>
+                <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label><input type="tel" disabled={isSubmitting} required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" /></div>
               </div>
-              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium h-24 resize-none outline-none focus:ring-2 focus:ring-gray-200" /></div>
+              <div><label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Raison *</label><textarea required disabled={isSubmitting} value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} className="block w-full border border-gray-200 rounded-xl p-3.5 bg-gray-50 font-medium h-24 resize-none outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" /></div>
               <div className="flex items-start bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <input type="checkbox" required checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer accent-black" />
+                <input type="checkbox" required disabled={isSubmitting} checked={formData.cgv_accepted} onChange={(e) => setFormData({...formData, cgv_accepted: e.target.checked})} className="mt-1 w-4 h-4 cursor-pointer accent-black disabled:opacity-50" />
                 <label className="ml-3 text-[11px] text-gray-600 font-medium">J'accepte les <Link href="/cgv" target="_blank" className="text-black font-bold underline">conditions d'utilisation</Link>.</label>
               </div>
-              <div className="mt-4 flex justify-center">
-                <Turnstile siteKey="0x4AAAAAADIiijhYB_5mdeNZ" onSuccess={(token) => setCaptchaToken(token)} onExpire={() => setCaptchaToken(null)} />
-              </div>
-              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
+              
+              {!isSubmitting && (
+                <div className="mt-4 flex justify-center">
+                  <Turnstile siteKey="0x4AAAAAADIiijhYB_5mdeNZ" onSuccess={(token) => setCaptchaToken(token)} onExpire={() => setCaptchaToken(null)} />
+                </div>
+              )}
+              
+              <button 
+                type="submit" 
+                disabled={!formData.cgv_accepted || !captchaToken || isSubmitting} 
+                className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-all flex items-center justify-center ${(!formData.cgv_accepted || !captchaToken) ? 'bg-gray-300 cursor-not-allowed' : isSubmitting ? 'bg-gray-800 cursor-wait' : 'bg-black hover:scale-[1.02]'}`}
+              >
+                {isSubmitting ? (
+                  <>
+                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                     </svg>
+                     Envoi en cours...
+                  </>
+                ) : (
+                  "Transmettre la demande"
+                )}
+              </button>
             </form>
           </div>
         </div>
@@ -576,7 +609,7 @@ export default function CalendarPage() {
             </div>
             <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Oups !</h2>
             <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">{errorMessage}</p>
-            <button onClick={() => setErrorMessage("")} className="w-full h-[52px] bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
+            <button onClick={() => setErrorMessage("")} className="w-full bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors text-sm uppercase tracking-widest shadow-lg">
               Compris
             </button>
           </div>
@@ -590,7 +623,7 @@ export default function CalendarPage() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-10 h-10 text-green-600" /></div>
             <h2 className="text-3xl font-black text-gray-900 mb-2">Reçue !</h2>
             <p className="text-gray-500 font-medium mb-8 text-sm leading-relaxed">Votre demande est en cours de validation par notre administration.</p>
-            <button onClick={() => setShowSuccess(false)} className="w-full h-[52px] bg-black text-white font-black rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-colors">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
+            <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-colors">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
           </div>
         </div>
       )}

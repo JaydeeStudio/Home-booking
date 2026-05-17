@@ -210,20 +210,6 @@ export default function AdminPage() {
     });
   };
 
-  // NOUVEAUTÉ : Permet de cliquer sur la grille pour bloquer un créneau vide
-  const handleAdminSlotClick = (spaceId: string, hour: number) => {
-    let h = hour;
-    if (h < 6) h = 6;
-    if (h > 22) h = 22;
-
-    const startStr = h.toString().padStart(2, '0') + ":00";
-    const endStr = (h + 1 > 23 ? 23 : h + 1).toString().padStart(2, '0') + ":00";
-    
-    setBlockData({ title: "Bloqué (Maintenance/Event)", start_time: startStr, end_time: endStr });
-    setSelectedSpacesToBlock([spaceId]);
-    setShowBlockModal(true);
-  };
-
   const updateStatus = async (id: string, status: 'confirmed' | 'rejected') => {
     const booking = bookings.find(b => b.id === id);
     if (!booking) return;
@@ -456,7 +442,8 @@ export default function AdminPage() {
     const { data: insertedBlocks, error } = await supabase.from("bookings").insert(blocksToInsert).select();
     
     if (error) {
-      alert("Erreur lors de la création des blocs.");
+      // MODIFICATION ICI : On utilise notre jolie modale globale
+      setErrorMessage("Erreur lors de la création des blocs : " + error.message);
     } else { 
       if (insertedBlocks && insertedBlocks.length > 0) {
         insertedBlocks.forEach(block => {
@@ -519,8 +506,7 @@ export default function AdminPage() {
     end: endOfWeek(monthEnd, { weekStartsOn: 1 }) 
   });
   
-  // CORRECTION DE L'HEURE (6h00 au lieu de 8h00)
-  const hours = Array.from({ length: 18 }, (_, i) => i + 6);
+  const hours = Array.from({ length: 15 }, (_, i) => i + 8);
 
   if (loading) return null;
   
@@ -544,9 +530,6 @@ export default function AdminPage() {
       </div>
     </div>
   );
-
-  // VÉRIFICATION DES CONFLITS POUR LA MODALE
-  const hasConfirmedConflict = conflictingBookings.some(b => b.status === 'confirmed');
 
   return (
     <div className="flex flex-col lg:flex-row h-[100dvh] bg-gray-50 font-sans overflow-hidden relative">
@@ -657,7 +640,7 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* MODAL CALENDRIER MOBILE */}
+      {/* MODAL CALENDRIER ADMIN (MOBILE UNIQUEMENT) */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col max-h-[90vh]">
@@ -899,12 +882,7 @@ export default function AdminPage() {
                         {spaces.map(space => {
                           const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
                           return (
-                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 group bg-white hover:bg-gray-50 transition-colors">
-                              {/* Raccourci de clic sur grille vide pour bloquer rapidement */}
-                              <div onClick={() => handleAdminSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer">
-                                <Lock size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                              
+                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 bg-white hover:bg-gray-50 transition-colors">
                               {spaceBookings.filter(b => new Date(b.start_time).getHours() === h).map(b => (
                                 <div 
                                   key={b.id} 
@@ -1096,7 +1074,7 @@ export default function AdminPage() {
             </div>
             
             <p className="text-sm text-gray-600 mb-6 font-medium leading-relaxed">
-              {hasConfirmedConflict 
+              {conflictingBookings.some(b => b.status === 'confirmed') 
                 ? "Impossible de bloquer : certains créneaux sont déjà validés sur cette période. Vous devez d'abord les annuler ou les déplacer."
                 : "Les réservations (en attente) suivantes chevauchent les créneaux que vous essayez de bloquer. Voulez-vous tout de même forcer le blocage ?"}
             </p>
@@ -1123,7 +1101,7 @@ export default function AdminPage() {
               >
                 Annuler
               </button>
-              {!hasConfirmedConflict && (
+              {!conflictingBookings.some(b => b.status === 'confirmed') && (
                 <button 
                   onClick={() => executeBlockInsertion(pendingBlocks)} 
                   className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
@@ -1332,7 +1310,7 @@ export default function AdminPage() {
       {/* MODAL ERREUR GLOBALE */}
       {errorMessage && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[150] p-4" onMouseDown={() => setErrorMessage("")}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col items-center text-center border border-white/20" onMouseDown={e => e.stopPropagation()}>
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
               <AlertTriangle className="w-10 h-10 text-red-500" />
             </div>
