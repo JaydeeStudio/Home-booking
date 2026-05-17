@@ -17,6 +17,10 @@ export async function POST(req: Request) {
     const startDate = new Date(start_time);
     const endDate = end_time ? new Date(end_time) : new Date(startDate.getTime() + 60 * 60 * 1000);
     
+    // Configurations pour forcer l'heure Suisse dans le texte des e-mails
+    const swissDateTimeOptions: Intl.DateTimeFormatOptions = { timeZone: 'Europe/Zurich', dateStyle: 'full', timeStyle: 'short' };
+    const swissDateLongOptions: Intl.DateTimeFormatOptions = { timeZone: 'Europe/Zurich', dateStyle: 'long' };
+
     const googleUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Réservation : " + space_name)}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${encodeURIComponent("Motif : " + reason + (admin_message ? "\n\nNote de l'admin : " + admin_message : ""))}&location=${encodeURIComponent(space_name)}&sf=true&output=xml`;
     const icsUrl = `https://ics.agical.io/?subject=${encodeURIComponent("Réservation : " + space_name)}&dtstart=${startDate.toISOString()}&dtend=${endDate.toISOString()}&description=${encodeURIComponent(reason)}&location=${encodeURIComponent(space_name)}&reminder=10`;
     const cancelUrl = `${BASE_URL}/gerer?id=${booking_id}`;
@@ -40,7 +44,7 @@ export async function POST(req: Request) {
       const adminContent = `
         <p style="font-size: 16px; color: #374151;">Demande soumise par <strong>${user_name}</strong>.</p>
         <table style="width: 100%; border-collapse: collapse; margin: 30px 0; background: #f9fafb; border-radius: 16px; overflow: hidden;">
-          <tr><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold; width: 30%;">Date & Heure</td><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: bold;">${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</td></tr>
+          <tr><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold; width: 30%;">Date & Heure</td><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: bold;">${startDate.toLocaleString('fr-CH', swissDateTimeOptions)}</td></tr>
           <tr><td style="padding: 16px; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold;">Motif</td><td style="padding: 16px; color: #111827;">${reason}</td></tr>
         </table>
         <div style="text-align: center; margin-top: 40px;">
@@ -55,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     if (type === 'USER_CANCELLED') {
-      const adminCancelContent = `<p style="font-size: 16px; color: #374151;"><strong>${user_name}</strong> a annulé sa réservation.</p><p style="font-size: 16px; color: #374151;">Le créneau du <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a été libéré.</p>`;
+      const adminCancelContent = `<p style="font-size: 16px; color: #374151;"><strong>${user_name}</strong> a annulé sa réservation.</p><p style="font-size: 16px; color: #374151;">Le créneau du <strong>${startDate.toLocaleString('fr-CH', swissDateTimeOptions)}</strong> a été libéré.</p>`;
       return NextResponse.json(await resend.emails.send({
         from: 'Home Réservation <onboarding@resend.dev>', to: [ADMIN_EMAIL],
         subject: `❌ Annulation : ${space_name} par ${user_name}`, html: wrapEmail("Réservation Annulée", space_color, adminCancelContent)
@@ -70,10 +74,10 @@ export async function POST(req: Request) {
 
     if (type === 'CONFIRMED') {
       emailTitle = "Réservation Confirmée"; subject = `✨ Votre réservation est validée (${space_name})`;
-      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong> a bien été validée.</p>${adminNoteHtml}${agendaButtons}${cancelLink}${legalFooter}`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre demande pour le <strong>${startDate.toLocaleString('fr-CH', swissDateTimeOptions)}</strong> a bien été validée.</p>${adminNoteHtml}${agendaButtons}${cancelLink}${legalFooter}`;
     } else if (type === 'DELETED') {
       emailTitle = "Réservation Annulée"; subject = `Info concernant votre demande (${space_name})`;
-      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Nous avons bien reçu votre demande pour le <strong>${startDate.toLocaleString('fr-FR', { dateStyle: 'long' })}</strong>, mais nous ne pouvons malheureusement pas la maintenir.</p>${adminNoteHtml}<div style="background: #fef2f2; border: 1px solid #fecaca; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b91c1c; font-size: 14px; text-align: center;"><strong>⚠️ Attention :</strong> Si cet événement avait été ajouté à votre calendrier personnel, merci de le supprimer manuellement.</p></div>`;
+      content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Nous avons bien reçu votre demande pour le <strong>${startDate.toLocaleString('fr-CH', swissDateLongOptions)}</strong>, mais nous ne pouvons malheureusement pas la maintenir.</p>${adminNoteHtml}<div style="background: #fef2f2; border: 1px solid #fecaca; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b91c1c; font-size: 14px; text-align: center;"><strong>⚠️ Attention :</strong> Si cet événement avait été ajouté à votre calendrier personnel, merci de le supprimer manuellement.</p></div>`;
     } else if (type === 'MODIFIED') {
       emailTitle = "Réservation Ajustée"; subject = `⚠️ Votre réservation a été modifiée (${space_name})`;
       content = `<p style="font-size: 16px; color: #374151;">Bonjour <strong>${user_name}</strong>,</p><p style="font-size: 16px; color: #374151;">Votre réservation a bien été traitée, mais l'administration a dû y apporter des ajustements.</p>${adminNoteHtml}<div style="background: #fffbeb; border: 1px solid #fde68a; padding: 16px; border-radius: 12px; margin-top: 30px;"><p style="margin: 0; color: #b45309; font-size: 14px; text-align: center;"><strong>🔄 Rappel Agenda :</strong> N'oubliez pas de mettre à jour votre calendrier personnel.</p></div>${agendaButtons}${cancelLink}${legalFooter}`;
@@ -81,7 +85,6 @@ export async function POST(req: Request) {
       emailTitle = "Rappel de Réservation"; 
       subject = `Rappel : Votre réservation de demain (${space_name})`;
       
-      // FIX HEURE : On force le fuseau horaire de la Suisse
       const displayTime = startDate.toLocaleTimeString('fr-CH', { 
         hour: '2-digit', 
         minute: '2-digit', 
