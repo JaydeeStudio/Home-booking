@@ -521,13 +521,18 @@ export default function AdminPage() {
       
       const { error } = await supabase.from("bookings").delete().eq("id", id);
       
-      // SÉCURITÉ GOOGLE CALENDAR : Suppression à la corbeille manuelle
-      if (!error && bookingToDelete && bookingToDelete.google_event_id) {
-        fetch('/api/calendar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'delete', booking: bookingToDelete })
-        }).catch(err => console.error("Erreur Calendar Suppression Modale:", err));
+      if (!error && bookingToDelete) {
+        // CORRECTION DU BUG 1 : ENVOI DE L'EMAIL !
+        await notifyUser('DELETED', bookingToDelete, adminMessage);
+
+        // CORRECTION DU BUG 1 : SUPPRESSION GOOGLE CALENDAR
+        if (bookingToDelete.google_event_id) {
+          fetch('/api/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', booking: bookingToDelete })
+          }).catch(err => console.error("Erreur Calendar Suppression Modale:", err));
+        }
       }
       
       setSelectedBooking(null);
@@ -965,7 +970,7 @@ export default function AdminPage() {
 
       {/* MODAL BLOCAGE MULTIPLE */}
       {showBlockModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" onMouseDown={(e) => {if(e.target === e.currentTarget) setShowBlockModal(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-black uppercase tracking-tight text-indigo-900 flex items-center">
@@ -1111,63 +1116,67 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* MODAL ALERTE CONFLIT */}
+      {/* MODAL ALERTE CONFLIT RE-DESIGNÉE */}
       {conflictModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[120] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget) setConflictModal(false)}}>
-          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 p-8 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6 shrink-0">
-              <h2 className="text-xl font-black uppercase tracking-tight text-red-600 flex items-center">
-                <AlertTriangle className="mr-2" size={24}/> Conflit détecté
-              </h2>
-              <button 
-                onClick={() => setConflictModal(false)} 
-                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"
-              >
-                <X className="w-5 h-5"/>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[120] p-4 backdrop-blur-sm" onMouseDown={(e) => {if(e.target === e.currentTarget) setConflictModal(false)}}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            
+            {/* Header avec fond rouge très léger */}
+            <div className="bg-red-50/50 p-8 border-b border-red-100 flex flex-col items-center text-center relative shrink-0">
+              <button onClick={() => setConflictModal(false)} className="absolute top-6 right-6 p-2 bg-white rounded-full hover:bg-gray-100 transition shadow-sm">
+                <X className="w-5 h-5 text-gray-500"/>
               </button>
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 shadow-sm border border-red-200">
+                <AlertTriangle className="text-red-600 w-8 h-8"/>
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-tight text-red-900 mb-2">Conflit détecté</h2>
+              <p className="text-sm text-red-700/80 font-medium max-w-sm">
+                Le blocage superpose des réservations existantes. Forcer le blocage va <strong className="text-red-800">annuler et supprimer</strong> les événements suivants :
+              </p>
             </div>
             
-            <p className="text-sm text-gray-600 mb-6 font-medium leading-relaxed">
-              Le créneau que vous tentez de bloquer superpose les réservations ci-dessous.<br/><br/>
-              Si vous forcez le blocage, ces réservations seront <strong>automatiquement annulées</strong> et un e-mail sera envoyé aux demandeurs.
-            </p>
-            
-            <div className="flex-1 overflow-auto mb-6 space-y-3 bg-red-50/50 p-4 rounded-2xl border border-red-100">
-              {conflictingBookings.map((b, i) => (
-                <div key={i} className="p-3 bg-white border border-red-200 rounded-xl shadow-sm">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-red-100 text-red-700 inline-block uppercase tracking-wider">
-                      {b.spaces?.name}
-                    </span>
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {b.status === 'confirmed' ? 'Validé' : 'En attente'}
-                    </span>
+            {/* Zone de contenu défilable */}
+            <div className="p-8 overflow-y-auto flex-1 bg-gray-50/50">
+              <div className="space-y-3 mb-6">
+                {conflictingBookings.map((b, i) => (
+                  <div key={i} className="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-gray-100 text-gray-700 uppercase tracking-wider">
+                          {b.spaces?.name}
+                        </span>
+                        <span className={`text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {b.status === 'confirmed' ? 'Validé' : 'En attente'}
+                        </span>
+                      </div>
+                      <p className="font-bold text-sm text-gray-900">{b.user_name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-gray-900 mb-0.5">{format(new Date(b.start_time), "d MMM", {locale:fr})}</p>
+                      <p className="text-[11px] font-medium text-gray-500 flex items-center justify-end"><Clock size={10} className="mr-1"/> {format(new Date(b.start_time), "HH:mm")} - {format(new Date(b.end_time), "HH:mm")}</p>
+                    </div>
                   </div>
-                  <p className="font-bold text-sm text-gray-900">{b.user_name}</p>
-                  <p className="text-xs text-gray-500 mt-1 flex items-center">
-                    <Clock size={12} className="mr-1"/> 
-                    {format(new Date(b.start_time), "d MMM yyyy • HH:mm", {locale:fr})} à {format(new Date(b.end_time), "HH:mm")}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 px-1">
+                  Motif de l'annulation (E-mail envoyé aux demandeurs)
+                </label>
+                <textarea 
+                  placeholder="Ex: Problème technique nécessitant l'intervention d'un technicien." 
+                  className="w-full border border-gray-200 rounded-2xl p-4 bg-white focus:ring-2 focus:ring-red-500 outline-none transition-all font-medium h-24 resize-none shadow-sm" 
+                  value={conflictMessage} 
+                  onChange={e => setConflictMessage(e.target.value)} 
+                />
+              </div>
             </div>
 
-            <div className="mb-6">
-              <label className="text-[10px] font-black uppercase text-gray-400 block mb-2">
-                Motif de l'annulation (envoyé par e-mail)
-              </label>
-              <textarea 
-                placeholder="Ex: Problème technique de dernière minute nécessitant l'intervention d'un technicien." 
-                className="w-full border border-gray-200 rounded-2xl p-4 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500 outline-none transition-all font-medium h-24 resize-none" 
-                value={conflictMessage} 
-                onChange={e => setConflictMessage(e.target.value)} 
-              />
-            </div>
-
-            <div className="flex gap-3 shrink-0">
+            {/* Zone des boutons sticky en bas */}
+            <div className="p-6 border-t border-gray-100 bg-white flex gap-3 shrink-0">
               <button 
                 onClick={() => setConflictModal(false)} 
-                className="flex-1 h-[52px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider"
+                className="flex-1 h-[52px] bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition font-black rounded-2xl text-sm uppercase tracking-wider"
               >
                 Annuler
               </button>
@@ -1175,7 +1184,7 @@ export default function AdminPage() {
                 onClick={handleForceBlock} 
                 className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider flex items-center justify-center"
               >
-                Forcer
+                Forcer l'annulation
               </button>
             </div>
           </div>
@@ -1184,7 +1193,7 @@ export default function AdminPage() {
 
       {/* MODAL SUCCESS BLOCAGE */}
       {blockSuccessMessage && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[110] p-4" onMouseDown={() => setBlockSuccessMessage("")}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[110] p-4 backdrop-blur-sm" onMouseDown={() => setBlockSuccessMessage("")}>
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm overflow-hidden p-10 text-center border">
             <div className="w-24 h-24 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-12 h-12 text-indigo-600" />
@@ -1203,7 +1212,7 @@ export default function AdminPage() {
 
       {/* MODAL GESTION RESERVATION */}
       {selectedBooking && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4 backdrop-blur-sm" onMouseDown={(e) => {if(e.target === e.currentTarget){setSelectedBooking(null); setIsEditing(false);}}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 p-8 font-sans max-h-[90vh] overflow-y-auto border border-white/20">
              
              <div className="flex justify-between items-center mb-6">
