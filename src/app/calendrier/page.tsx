@@ -68,6 +68,7 @@ export default function CalendarPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false); // <--- L'ÉTAT D'ENVOI EST LÀ
   
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -154,24 +155,28 @@ export default function CalendarPage() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.cgv_accepted || !captchaToken) return;
+    if (!formData.cgv_accepted || !captchaToken || isSubmitting) return;
+
+    setIsSubmitting(true); // <--- DÉMARRAGE DU CHARGEMENT
 
     const start = new Date(currentDate); const [sh, sm] = formData.start_time.split(':'); start.setHours(parseInt(sh), parseInt(sm), 0);
     const end = new Date(currentDate); const [eh, em] = formData.end_time.split(':'); end.setHours(parseInt(eh), parseInt(em), 0);
     
     if (start < new Date()) { 
       setErrorMessage("Impossible de réserver dans le passé. Veuillez choisir un horaire futur."); 
+      setIsSubmitting(false);
       return; 
     }
     if (end <= start) { 
       setErrorMessage("L'heure de fin doit obligatoirement être après l'heure de début."); 
+      setIsSubmitting(false);
       return; 
     }
 
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
 
-    // 1. D'ABORD : ENREGISTREMENT DANS SUPABASE (POUR ÉVITER LES ÉVÉNEMENTS FANTÔMES DANS GOOGLE)
+    // 1. D'ABORD : ENREGISTREMENT DANS SUPABASE
     const { data, error } = await supabase.from("bookings").insert([{
       space_id: formData.space_id, 
       user_name: full_name, 
@@ -184,6 +189,7 @@ export default function CalendarPage() {
     }]).select();
 
     if (error) { 
+      setIsSubmitting(false); // <--- ARRÊT DU CHARGEMENT EN CAS D'ERREUR
       if (error.message.includes("prevent_double_booking")) {
         setErrorMessage("Ce créneau est malheureusement déjà pris ou en attente d'approbation. Veuillez choisir un autre horaire.");
       } else {
@@ -211,7 +217,6 @@ export default function CalendarPage() {
         });
         const calData = await calRes.json();
         
-        // Si Google renvoie un ID, on met à jour la réservation dans Supabase
         if (calData.google_event_id) {
           await supabase.from("bookings").update({ google_event_id: calData.google_event_id }).eq("id", insertedBooking.id);
         }
@@ -237,7 +242,11 @@ export default function CalendarPage() {
       }).catch(console.error);
     }
 
-    setIsModalOpen(false); setShowSuccess(true); setCaptchaToken(null); fetchBookings(); 
+    setIsSubmitting(false); // <--- FIN DU CHARGEMENT
+    setIsModalOpen(false); 
+    setShowSuccess(true); 
+    setCaptchaToken(null); 
+    fetchBookings(); 
   };
 
   const returnHome = () => { window.location.href = "/"; };
@@ -574,7 +583,25 @@ export default function CalendarPage() {
               <div className="mt-4 flex justify-center">
                 <Turnstile siteKey="0x4AAAAAADIiijhYB_5mdeNZ" onSuccess={(token) => setCaptchaToken(token)} onExpire={() => setCaptchaToken(null)} />
               </div>
-              <button type="submit" disabled={!formData.cgv_accepted || !captchaToken} className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform ${formData.cgv_accepted && captchaToken ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}>Transmettre la demande</button>
+              
+              {/* BOUTON AVEC ETAT DE CHARGEMENT */}
+              <button 
+                type="submit" 
+                disabled={!formData.cgv_accepted || !captchaToken || isSubmitting} 
+                className={`w-full text-white font-black uppercase py-4 rounded-2xl mt-4 shadow-xl text-sm transition-transform flex items-center justify-center ${formData.cgv_accepted && captchaToken && !isSubmitting ? 'bg-black hover:scale-[1.02]' : 'bg-gray-300 cursor-not-allowed'}`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Envoi en cours...
+                  </>
+                ) : (
+                  "Transmettre la demande"
+                )}
+              </button>
             </form>
           </div>
         </div>
