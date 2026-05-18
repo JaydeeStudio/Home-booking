@@ -108,6 +108,9 @@ export default function AdminPage() {
   const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
   const [conflictMessage, setConflictMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  // NOUVEAU STATUT POUR LA BELLE FENÊTRE DE SUPPRESSION
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   
   const [editData, setEditData] = useState({ 
     user_name: "", 
@@ -189,6 +192,7 @@ export default function AdminPage() {
         setIsSidebarOpen(false); 
         setConflictModal(false);
         setConflictMessage("");
+        setDeleteConfirmId(null);
       }
     };
     window.addEventListener('keydown', handleEsc);
@@ -346,7 +350,8 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    if(!booking.user_email || booking.user_email === user?.email) return; 
+    // CORRECTION : On a retiré le blocage qui t'empêchait de recevoir tes propres e-mails de test
+    if(!booking.user_email) return; 
     
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
     
@@ -515,29 +520,40 @@ export default function AdminPage() {
     }
   };
 
-  const deleteBooking = async (id: string) => {
-    if (confirm("Supprimer ce blocage ou cette réservation définitivement ?")) {
-      const bookingToDelete = bookings.find(b => b.id === id);
-      
-      const { error } = await supabase.from("bookings").delete().eq("id", id);
-      
-      if (!error && bookingToDelete) {
-        // CORRECTION DU BUG 1 : ENVOI DE L'EMAIL !
-        await notifyUser('DELETED', bookingToDelete, adminMessage);
+  // NOUVELLE FONCTION QUI OUVRE JUSTE LA MODALE DE SUPPRESSION
+  const openDeleteConfirm = (id: string) => {
+    setDeleteConfirmId(id);
+  };
 
-        // CORRECTION DU BUG 1 : SUPPRESSION GOOGLE CALENDAR
-        if (bookingToDelete.google_event_id) {
-          fetch('/api/calendar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'delete', booking: bookingToDelete })
-          }).catch(err => console.error("Erreur Calendar Suppression Modale:", err));
-        }
-      }
-      
-      setSelectedBooking(null);
-      fetchBookings();
+  // NOUVELLE FONCTION QUI EXÉCUTE VRAIMENT LA SUPPRESSION
+  const confirmDeleteBooking = async () => {
+    if (!deleteConfirmId) return;
+
+    const bookingToDelete = bookings.find(b => b.id === deleteConfirmId);
+    if (!bookingToDelete) {
+      setDeleteConfirmId(null);
+      return;
     }
+    
+    const { error } = await supabase.from("bookings").delete().eq("id", deleteConfirmId);
+    
+    if (!error) {
+      // ENVOI DE L'EMAIL (Le fameux bug est corrigé)
+      await notifyUser('DELETED', bookingToDelete, adminMessage);
+
+      // SUPPRESSION GOOGLE CALENDAR
+      if (bookingToDelete.google_event_id) {
+        fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', booking: bookingToDelete })
+        }).catch(err => console.error("Erreur Calendar Suppression Modale:", err));
+      }
+    }
+    
+    setDeleteConfirmId(null);
+    setSelectedBooking(null);
+    fetchBookings();
   };
 
   const returnHome = () => { 
@@ -1347,7 +1363,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                   <button 
                     type="button" 
-                    onClick={() => deleteBooking(selectedBooking.id)} 
+                    onClick={() => openDeleteConfirm(selectedBooking.id)} 
                     className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"
                   >
                     <Trash2 className="w-5 h-5 mb-2"/> Supprimer
@@ -1400,6 +1416,35 @@ export default function AdminPage() {
             >
               Compris
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMATION SUPPRESSION (REMPLACE LE CONFIRM NATIF MOCHE) */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4" onMouseDown={() => setDeleteConfirmId(null)}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm p-8 text-center border border-white/20 animate-in zoom-in-95 duration-200" onMouseDown={e => e.stopPropagation()}>
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trash2 className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Supprimer ?</h2>
+            <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">
+              Voulez-vous vraiment supprimer ce blocage ou cette réservation définitivement ?
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setDeleteConfirmId(null)} 
+                className="flex-1 h-[52px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={confirmDeleteBooking} 
+                className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
+              >
+                Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}
