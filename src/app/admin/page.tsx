@@ -106,7 +106,7 @@ export default function AdminPage() {
   const [conflictModal, setConflictModal] = useState(false);
   const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
   const [pendingBlocks, setPendingBlocks] = useState<any[]>([]);
-  const [conflictMessage, setConflictMessage] = useState(""); // NOUVEAU : Message d'annulation forcé
+  const [conflictMessage, setConflictMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   
   const [editData, setEditData] = useState({ 
@@ -234,6 +234,7 @@ export default function AdminPage() {
       if (!error) {
         await notifyUser('DELETED', booking, adminMessage);
         
+        // SÉCURITÉ GOOGLE CALENDAR : Suppression de l'événement lié
         if (booking.google_event_id) {
           fetch('/api/calendar', {
             method: 'POST',
@@ -263,6 +264,7 @@ export default function AdminPage() {
 
     await notifyUser('CONFIRMED', booking, adminMessage);
     
+    // MISE À JOUR GOOGLE CALENDAR
     if (booking.google_event_id) {
       const spaceObj = spaces.find(s => s.id === booking.space_id);
       fetch('/api/calendar', {
@@ -332,8 +334,7 @@ export default function AdminPage() {
             status: 'confirmed', 
             start_time: st.toISOString(), 
             end_time: et.toISOString(),
-            space_name: spaceObj?.name,
-            space_color: spaceObj?.color
+            space_name: spaceObj?.name
           } 
         })
       }).catch(err => console.error("Erreur Calendar Update:", err));
@@ -345,7 +346,7 @@ export default function AdminPage() {
   };
 
   const notifyUser = async (type: string, booking: any, adminMsg: string) => {
-    if(!booking.user_email) return; 
+    if(!booking.user_email || booking.user_email === user?.email) return; 
     
     const sColor = spaces.find(s => s.id === booking.space_id)?.color || booking.spaces?.color;
     
@@ -452,7 +453,6 @@ export default function AdminPage() {
     executeBlockInsertion(blocks);
   };
 
-  // NOUVEAU : Fonction de Forçage (Suppression des conflits + Notification + Blocage)
   const handleForceBlock = async () => {
     // 1. On supprime les réservations existantes et on notifie
     for (const booking of conflictingBookings) {
@@ -460,16 +460,17 @@ export default function AdminPage() {
       if (!error) {
         await notifyUser('DELETED', booking, conflictMessage || "L'administration a dû bloquer ce créneau pour une raison impérative (maintenance ou événement).");
         
+        // SÉCURITÉ GOOGLE CALENDAR : Suppression lors d'un forçage
         if (booking.google_event_id) {
           fetch('/api/calendar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'delete', booking })
-          }).catch(err => console.error("Erreur Calendar:", err));
+          }).catch(err => console.error("Erreur Calendar Forçage Blocage:", err));
         }
       }
     }
-    // 2. On insère notre blocage tranquillement
+    // 2. On insère notre blocage
     setConflictMessage("");
     executeBlockInsertion(pendingBlocks);
   };
@@ -515,8 +516,21 @@ export default function AdminPage() {
   };
 
   const deleteBooking = async (id: string) => {
-    if (confirm("Supprimer ce blocage définitivement ?")) {
-      await supabase.from("bookings").delete().eq("id", id);
+    if (confirm("Supprimer ce blocage ou cette réservation définitivement ?")) {
+      const bookingToDelete = bookings.find(b => b.id === id);
+      
+      const { error } = await supabase.from("bookings").delete().eq("id", id);
+      
+      // SÉCURITÉ GOOGLE CALENDAR : Suppression à la corbeille manuelle
+      if (!error && bookingToDelete && bookingToDelete.google_event_id) {
+        fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', booking: bookingToDelete })
+        }).catch(err => console.error("Erreur Calendar Suppression Modale:", err));
+      }
+      
+      setSelectedBooking(null);
       fetchBookings();
     }
   };
@@ -675,7 +689,7 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* MODAL CALENDRIER MOBILE */}
+      {/* MODAL CALENDRIER ADMIN (MOBILE UNIQUEMENT) */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[100] p-4 lg:hidden" onMouseDown={(e) => {if(e.target === e.currentTarget) setIsSidebarOpen(false)}}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 p-6 flex flex-col max-h-[90vh]">
@@ -917,8 +931,8 @@ export default function AdminPage() {
                         {spaces.map(space => {
                           const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
                           return (
-                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 group bg-white hover:bg-gray-50 transition-colors">
-                              <div onClick={() => handleAdminSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer">
+                            <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 bg-white hover:bg-gray-50 transition-colors">
+                              <div onClick={() => handleAdminSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer group">
                                 <Lock size={16} className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
                               
@@ -980,6 +994,7 @@ export default function AdminPage() {
                 />
               </div>
 
+              {/* SÉLECTEURS 15 MIN */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">
@@ -1235,6 +1250,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                     
+                    {/* SÉLECTEURS MODIFICATION (CHOIX 2 : STRICTEMENT 15 MIN) */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-[10px] font-black uppercase text-gray-400 block mb-1">
@@ -1322,7 +1338,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                   <button 
                     type="button" 
-                    onClick={() => updateStatus(selectedBooking.id, 'rejected')} 
+                    onClick={() => deleteBooking(selectedBooking.id)} 
                     className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"
                   >
                     <Trash2 className="w-5 h-5 mb-2"/> Supprimer
