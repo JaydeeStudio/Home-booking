@@ -443,7 +443,7 @@ export default function CalendarPage() {
                     <tr key={h} className="h-16">
                       <td className="sticky left-0 z-20 bg-gray-50 border-r border-b border-gray-100 text-[10px] font-bold text-gray-400 text-center">{h}:00</td>
                       {spaces.map(space => {
-                        const spaceBookings = bookings.filter(b => b.space_id === space.id);
+                        const spaceBookings = bookings.filter(b => b.space_id === space.id && b.status !== 'rejected');
                         const isOccupied = spaceBookings.some(b => h >= new Date(b.start_time).getHours() && h < new Date(b.end_time).getHours());
                         
                         const slotTime = new Date(currentDate); 

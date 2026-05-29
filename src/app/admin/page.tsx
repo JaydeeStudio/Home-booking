@@ -45,9 +45,8 @@ const ADMIN_WHITELIST = [
   "jonas@eglisehome.com", 
   "nadege@eglisehome.com", 
   "sabine@eglisehome.com", 
-  "yves@eglisehome.com", 
+  "reservation@eglisehome.com", 
   "christine@eglisehome.com", 
-  "mathilde@eglisehome.com"
 ];
 
 // L'ORDRE FIGÉ DES SALLES
@@ -91,6 +90,7 @@ export default function AdminPage() {
   const [currentDate, setCurrentDate] = useState(startOfDay(new Date()));
   const [currentMonthView, setCurrentMonthView] = useState(startOfMonth(new Date()));
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   
   const [spaces, setSpaces] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
@@ -306,7 +306,7 @@ export default function AdminPage() {
       reason: editData.reason, 
       start_time: st.toISOString(), 
       end_time: et.toISOString(), 
-      status: 'confirmed'
+      status: 'modified'
     }).eq("id", selectedBooking.id);
 
     if (error) {
@@ -525,7 +525,7 @@ export default function AdminPage() {
     setDeleteConfirmId(id);
   };
 
-  // NOUVELLE FONCTION QUI EXÉCUTE VRAIMENT LA SUPPRESSION
+  // NOUVELLE FONCTION QUI EXÉCUTE VRAIMENT LA SUPPRESSION (Désormais un Rejet)
   const confirmDeleteBooking = async () => {
     if (!deleteConfirmId) return;
 
@@ -535,10 +535,11 @@ export default function AdminPage() {
       return;
     }
     
-    const { error } = await supabase.from("bookings").delete().eq("id", deleteConfirmId);
+    // Au lieu de .delete(), on update le statut à 'rejected'
+    const { error } = await supabase.from("bookings").update({ status: 'rejected' }).eq("id", deleteConfirmId);
     
     if (!error) {
-      // ENVOI DE L'EMAIL (Le fameux bug est corrigé)
+      // ENVOI DE L'EMAIL
       await notifyUser('DELETED', bookingToDelete, adminMessage);
 
       // SUPPRESSION GOOGLE CALENDAR
@@ -562,11 +563,14 @@ export default function AdminPage() {
     setIsSidebarOpen(false); 
   };
 
-  const filteredBookings = bookings.filter(b => (
-    b.user_name + (b.user_email||"") + b.reason + (b.spaces?.name || "")
-  ).toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredBookings = bookings.filter(b => {
+    const matchesSearch = (b.user_name + (b.user_email||"") + b.reason + (b.spaces?.name || "")).toLowerCase().includes(searchTerm.toLowerCase());
+    if (statusFilter === "all") return matchesSearch;
+    return matchesSearch && b.status === statusFilter;
+  });
   
-  const pendingBookings = filteredBookings.filter(b => b.status === 'pending');
+  // On s'assure que le bandeau latéral prend toujours toutes les attentes, peu importe le filtre actif
+  const pendingBookings = bookings.filter(b => b.status === 'pending');
 
   const monthStart = startOfMonth(currentMonthView); 
   const monthEnd = endOfMonth(monthStart);
@@ -800,15 +804,28 @@ export default function AdminPage() {
 
           <div className="flex-shrink-0 w-[80px] lg:w-auto flex items-center justify-end gap-2 lg:gap-4">
             
-            <div className="relative hidden lg:block">
-              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Rechercher..." 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                className="pl-11 pr-4 py-0 bg-white rounded-2xl text-sm border border-gray-200 w-64 focus:ring-2 focus:ring-black outline-none font-bold transition-all shadow-sm h-[48px]" 
-              />
+            <div className="hidden lg:flex items-center gap-2">
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-[48px] px-4 bg-white rounded-2xl text-sm border border-gray-200 focus:ring-2 focus:ring-black outline-none font-bold shadow-sm cursor-pointer"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="pending">En attente</option>
+                <option value="confirmed">Validés</option>
+                <option value="modified">Modifiés</option>
+                <option value="rejected">Déclinés</option>
+              </select>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Rechercher..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  className="pl-11 pr-4 py-0 bg-white rounded-2xl text-sm border border-gray-200 w-48 focus:ring-2 focus:ring-black outline-none font-bold transition-all shadow-sm h-[48px]" 
+                />
+              </div>
             </div>
             
             <button 
@@ -843,16 +860,29 @@ export default function AdminPage() {
         </header>
 
         {/* RECHERCHE ET ATTENTE SOUS LE HEADER SUR MOBILE */}
-        <div className="lg:hidden px-4 pb-4 flex flex-col gap-4 flex-shrink-0 z-30">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Rechercher (nom, salle...)" 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-              className="pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm h-[52px]" 
-            />
+        <div className="lg:hidden px-4 pb-4 flex flex-col gap-3 flex-shrink-0 z-30">
+          <div className="flex gap-2">
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-[52px] px-4 bg-white rounded-xl text-sm border border-gray-200 focus:ring-2 focus:ring-black outline-none font-bold shadow-sm cursor-pointer flex-1"
+            >
+              <option value="all">Tous</option>
+              <option value="pending">Attente</option>
+              <option value="confirmed">Validés</option>
+              <option value="modified">Modifiés</option>
+              <option value="rejected">Déclinés</option>
+            </select>
+            <div className="relative flex-[2]">
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Rechercher..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="pl-11 pr-4 py-3 bg-white rounded-xl text-sm border border-gray-200 w-full focus:ring-2 focus:ring-black outline-none font-bold shadow-sm h-[52px]" 
+              />
+            </div>
           </div>
           {pendingBookings.length > 0 && (
             <div>
@@ -882,12 +912,12 @@ export default function AdminPage() {
         </div>
 
         <main className="flex-1 flex flex-col min-h-0 px-4 lg:px-8 pb-4 lg:pb-8 relative">
-          {searchTerm ? (
+          {searchTerm || statusFilter !== "all" ? (
              <div className="h-full bg-white rounded-[32px] border border-gray-200 shadow-sm p-8 overflow-auto mt-2 lg:mt-0">
                 <div className="flex items-center justify-between mb-8 border-b pb-4">
-                  <h2 className="text-2xl font-black">Résultats : "{searchTerm}"</h2>
+                  <h2 className="text-2xl font-black">Résultats</h2>
                   <button 
-                    onClick={() => setSearchTerm("")} 
+                    onClick={() => {setSearchTerm(""); setStatusFilter("all");}} 
                     className="text-sm font-bold bg-gray-100 px-4 py-2 rounded-xl hover:bg-gray-200"
                   >
                     Effacer
@@ -908,9 +938,15 @@ export default function AdminPage() {
                           {b.spaces?.name}
                         </span>
                         <span 
-                          className={`text-[9px] font-black uppercase px-2 py-1 rounded ${b.status === 'pending' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}
+                          className={`text-[9px] font-black uppercase px-2 py-1 rounded 
+                            ${b.status === 'pending' ? 'bg-blue-100 text-blue-700' : 
+                              b.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                              b.status === 'modified' ? 'bg-amber-100 text-amber-700' : 
+                              'bg-green-100 text-green-700'}`}
                         >
-                          {b.status === 'pending' ? 'Attente' : 'Confirmé'}
+                          {b.status === 'pending' ? 'Attente' : 
+                           b.status === 'rejected' ? 'Décliné' : 
+                           b.status === 'modified' ? 'Modifié' : 'Confirmé'}
                         </span>
                       </div>
                       <p className="font-bold text-lg mb-1">{b.user_name}</p>
@@ -920,6 +956,9 @@ export default function AdminPage() {
                       <p className="text-xs text-gray-400 line-clamp-2">{b.reason}</p>
                     </div>
                   ))}
+                  {filteredBookings.length === 0 && (
+                    <p className="text-gray-500 col-span-3">Aucun résultat trouvé pour ces critères.</p>
+                  )}
                 </div>
              </div>
           ) : (
@@ -950,7 +989,8 @@ export default function AdminPage() {
                           {h}:00
                         </td>
                         {spaces.map(space => {
-                          const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate));
+                          // On cache les événements déclinés du calendrier visuel
+                          const spaceBookings = bookings.filter(b => b.space_id === space.id && isSameDay(new Date(b.start_time), currentDate) && b.status !== 'rejected');
                           return (
                             <td key={space.id} className="border-r border-b border-gray-50 relative p-0 h-16 bg-white hover:bg-gray-50 transition-colors">
                               <div onClick={() => handleAdminSlotClick(space.id, h)} className="w-full h-full flex items-center justify-center cursor-pointer group">
@@ -1420,16 +1460,16 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* MODAL CONFIRMATION SUPPRESSION (REMPLACE LE CONFIRM NATIF MOCHE) */}
+      {/* MODAL CONFIRMATION SUPPRESSION (DÉCLINER) */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4" onMouseDown={() => setDeleteConfirmId(null)}>
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm p-8 text-center border border-white/20 animate-in zoom-in-95 duration-200" onMouseDown={e => e.stopPropagation()}>
             <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Trash2 className="w-10 h-10 text-red-500" />
+              <X className="w-10 h-10 text-red-500" strokeWidth={3} />
             </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Supprimer ?</h2>
+            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Décliner ?</h2>
             <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">
-              Voulez-vous vraiment supprimer ce blocage ou cette réservation définitivement ?
+              Voulez-vous vraiment décliner cette demande ?
             </p>
             <div className="flex gap-3">
               <button 
@@ -1442,7 +1482,7 @@ export default function AdminPage() {
                 onClick={confirmDeleteBooking} 
                 className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
               >
-                Supprimer
+                Décliner
               </button>
             </div>
           </div>

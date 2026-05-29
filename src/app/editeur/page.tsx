@@ -6,7 +6,7 @@ import { ShieldCheck, LogOut, LayoutTemplate, FileText, Save, CheckCircle2, Uplo
 
 const ADMIN_WHITELIST = [
   "jonasdellomo@gmail.com", "jonas@eglisehome.com", "nadege@eglisehome.com", 
-  "sabine@eglisehome.com", "yves@eglisehome.com", "christine@eglisehome.com", "mathilde@eglisehome.com"
+  "sabine@eglisehome.com", "reservation@eglisehome.com", "christine@eglisehome.com" 
 ];
 
 const ROOM_ORDER = ["Conférence 1", "Conférence 2", "Social Stairs", "Bureaux", "Grande salle", "Enfance", "Espace canapés"];
