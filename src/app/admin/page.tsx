@@ -1360,7 +1360,7 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <div c<div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                   <button 
                     type="button" 
                     onClick={() => openDeleteConfirm(selectedBooking.id)} 
