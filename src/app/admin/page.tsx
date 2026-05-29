@@ -1360,13 +1360,13 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                <div c<div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                   <button 
                     type="button" 
                     onClick={() => openDeleteConfirm(selectedBooking.id)} 
                     className="p-4 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest text-[10px] flex flex-col items-center hover:bg-red-100 transition"
                   >
-                    <Trash2 className="w-5 h-5 mb-2"/> Supprimer
+                    <X className="w-5 h-5 mb-2" strokeWidth={3}/> Décliner
                   </button>
                   
                   <button 
