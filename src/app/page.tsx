@@ -85,7 +85,7 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-4xl mx-auto w-full">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-10 h-10 md:w-12 md:h-12 bg-black text-[#F4E5D2] rounded-xl flex items-center justify-center text-xl md:text-2xl font-black shadow-lg">H</div>
-            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">Home Spaces</h1>
+            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">Home Réservation</h1>
           </div>
           <p className="text-sm md:text-base text-black/80 font-medium max-w-xl mx-auto mb-6 px-4">
             {content?.landing_title || "La plateforme de réservation des espaces de l'église, réservée à la communauté Home Lausanne."}
