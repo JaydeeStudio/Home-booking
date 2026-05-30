@@ -117,8 +117,8 @@ if (type === 'CONTACT_FORM') {
       `;
       return NextResponse.json(await resend.emails.send({
         from: 'Home Contact <onboarding@resend.dev>', 
-        to: [body.target_email || ADMIN_EMAIL], // Envoie à l'email configuré dans l'éditeur, sinon fallback admin
-        reply_to: user_email, // Permet de faire "Répondre" directement depuis la boîte mail
+        to: [body.target_email || ADMIN_EMAIL], 
+        replyTo: user_email, 
         subject: `Nouveau message de ${user_name}`, 
         html: wrapEmail("Nouveau Message Externe", "#3b82f6", contactContent)
       }));
