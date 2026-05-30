@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabase";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CheckCircle2, Clock, XCircle, Trash2, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Trash2, ArrowLeft, X } from "lucide-react";
 import Link from "next/link";
 
 function GererContent() {
@@ -17,6 +17,9 @@ function GererContent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  
+  // NOUVEAU STATUT POUR LA FENÊTRE DE CONFIRMATION
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -42,9 +45,9 @@ function GererContent() {
     setLoading(false);
   };
 
-  const handleCancel = async () => {
-    if (!confirm("Voulez-vous vraiment annuler cette réservation ? Cette action est irréversible et libérera la salle.")) return;
-    
+  // L'ancienne fonction a été divisée en deux : l'ouverture de la modale, et l'exécution de l'annulation
+  const executeCancel = async () => {
+    setShowCancelModal(false);
     setIsCancelling(true);
 
     try {
@@ -123,7 +126,7 @@ function GererContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans selection:bg-[#F4E5D2] selection:text-black">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans selection:bg-[#F4E5D2] selection:text-black relative">
       <div className="bg-white rounded-[32px] shadow-xl max-w-md w-full overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-300">
         <div className="p-8 text-center border-b border-gray-100 bg-gray-50/50">
           <div className="w-12 h-12 bg-black text-[#F4E5D2] rounded-xl flex items-center justify-center text-xl font-black mx-auto mb-4 shadow-lg">H</div>
@@ -161,7 +164,7 @@ function GererContent() {
           </div>
 
           <button 
-            onClick={handleCancel} 
+            onClick={() => setShowCancelModal(true)} 
             disabled={isCancelling} 
             className="w-full bg-red-50 text-red-600 font-black uppercase tracking-widest py-4 rounded-2xl flex items-center justify-center hover:bg-red-100 transition-colors border border-red-100 mt-8 shadow-sm"
           >
@@ -169,6 +172,35 @@ function GererContent() {
           </button>
         </div>
       </div>
+
+      {/* MODAL CONFIRMATION SUPPRESSION (REMPLACE LE CONFIRM NATIF) */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4" onMouseDown={() => setShowCancelModal(false)}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm p-8 text-center border border-white/20 animate-in zoom-in-95 duration-200" onMouseDown={e => e.stopPropagation()}>
+            <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trash2 className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-black uppercase tracking-tight text-gray-900 mb-2">Annuler ?</h2>
+            <p className="text-sm text-gray-500 mb-8 font-medium leading-relaxed">
+              Voulez-vous vraiment annuler cette réservation ? Cette action est irréversible et libérera la salle pour les autres utilisateurs.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowCancelModal(false)} 
+                className="flex-1 h-[52px] bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-black rounded-2xl text-sm uppercase tracking-wider"
+              >
+                Retour
+              </button>
+              <button 
+                onClick={executeCancel} 
+                className="flex-1 h-[52px] bg-red-600 text-white hover:bg-red-700 transition font-black rounded-2xl shadow-lg shadow-red-600/20 text-sm uppercase tracking-wider"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
