@@ -24,6 +24,18 @@ const ROOM_ORDER = [
   "Enfance"
 ];
 
+// NOUVEAU : LA LISTE DES EMAILS DU STAFF (Auto-validation)
+const STAFF_WHITELIST = [
+  "yves@eglisehome.com",
+  "christine@eglisehome.com",
+  "yolan@eglisehome.com",
+  "nadege@eglisehome.com",
+  "jonas@eglisehome.com",
+  "sabine@eglisehome.com",
+  "reservation@eglisehome.com",
+  // Ajoute ici toutes les adresses de l'équipe
+];
+
 // LE GÉNÉRATEUR STRICT DE 15 MINUTES (CHOIX 2)
 const generateTimeOptions = (minTimeStr = "06:00", isEnd = false, selectedDate = new Date()) => {
   const options = [];
@@ -68,7 +80,8 @@ export default function CalendarPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false); // <--- L'ÉTAT D'ENVOI EST LÀ
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAutoConfirmed, setIsAutoConfirmed] = useState(false); // NOUVEAU
   
   const [viewSpace, setViewSpace] = useState<any | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -176,76 +189,77 @@ export default function CalendarPage() {
     const spaceObj = spaces.find(s => s.id === formData.space_id);
     const full_name = `${formData.first_name} ${formData.last_name}`;
 
-    // 1. D'ABORD : ENREGISTREMENT DANS SUPABASE
+    // VÉRIFICATION DU STAFF
+    const userEmailClean = formData.user_email.toLowerCase().trim();
+    const isStaff = STAFF_WHITELIST.includes(userEmailClean);
+    const bookingStatus = isStaff ? 'confirmed' : 'pending';
+
+    let googleEventId = null;
+    try {
+      const calRes = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'create', 
+          booking: { 
+            user_name: full_name, user_email: userEmailClean, reason: formData.reason,
+            start_time: start.toISOString(), end_time: end.toISOString(), status: bookingStatus,
+            space_name: spaceObj?.name, space_color: spaceObj?.color 
+          } 
+        })
+      });
+      const calData = await calRes.json();
+      googleEventId = calData.google_event_id || null;
+    } catch (err) {
+      console.error("Erreur Google Calendar:", err);
+    }
+
     const { data, error } = await supabase.from("bookings").insert([{
-      space_id: formData.space_id, 
-      user_name: full_name, 
-      user_email: formData.user_email,
-      user_phone: formData.phone, 
-      reason: formData.reason, 
-      start_time: start.toISOString(), 
-      end_time: end.toISOString(), 
-      status: 'pending'
+      space_id: formData.space_id, user_name: full_name, user_email: userEmailClean,
+      user_phone: formData.phone, reason: formData.reason, 
+      start_time: start.toISOString(), end_time: end.toISOString(), status: bookingStatus,
+      google_event_id: googleEventId
     }]).select();
 
     if (error) { 
-      setIsSubmitting(false); // <--- ARRÊT DU CHARGEMENT EN CAS D'ERREUR
       if (error.message.includes("prevent_double_booking")) {
         setErrorMessage("Ce créneau est malheureusement déjà pris ou en attente d'approbation. Veuillez choisir un autre horaire.");
       } else {
         setErrorMessage("Une erreur est survenue : " + error.message); 
       }
+      setIsSubmitting(false);
       return; 
     }
 
-    const insertedBooking = data?.[0];
-
-    // 2. SI SUCCÈS SUPABASE : CRÉATION DANS GOOGLE CALENDAR
-    if (insertedBooking) {
-      try {
-        const calRes = await fetch('/api/calendar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'create', 
-            booking: { 
-              ...insertedBooking,
-              space_name: spaceObj?.name, 
-              space_color: spaceObj?.color 
-            } 
-          })
-        });
-        const calData = await calRes.json();
-        
-        if (calData.google_event_id) {
-          await supabase.from("bookings").update({ google_event_id: calData.google_event_id }).eq("id", insertedBooking.id);
-        }
-      } catch (err) {
-        console.error("Erreur Google Calendar:", err);
-      }
-
-      // 3. ENVOI DE L'E-MAIL À L'ADMIN
+    // GESTION DES E-MAILS SÉPARÉE
+    if (isStaff) {
+      // Le staff est auto-validé : on lui envoie sa confirmation direct
       fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'NEW_REQUEST', 
-          booking_id: insertedBooking.id, 
-          user_name: full_name, 
-          user_email: formData.user_email,
-          space_name: spaceObj?.name, 
-          space_color: spaceObj?.color, 
-          start_time: start.toISOString(), 
-          end_time: end.toISOString(), 
-          reason: formData.reason
+          type: 'CONFIRMED', booking_id: data?.[0]?.id, user_name: full_name, user_email: userEmailClean,
+          space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
         })
       }).catch(console.error);
+      setIsAutoConfirmed(true); // On déclenche le message de succès spécifique
+    } else {
+      // Utilisateur lambda : l'admin reçoit une notification de nouvelle demande
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'NEW_REQUEST', booking_id: data?.[0]?.id, user_name: full_name, user_email: userEmailClean,
+          space_name: spaceObj?.name, space_color: spaceObj?.color, start_time: start.toISOString(), end_time: end.toISOString(), reason: formData.reason
+        })
+      }).catch(console.error);
+      setIsAutoConfirmed(false);
     }
 
-    setIsSubmitting(false); // <--- FIN DU CHARGEMENT
     setIsModalOpen(false); 
     setShowSuccess(true); 
     setCaptchaToken(null); 
+    setIsSubmitting(false);
     fetchBookings(); 
   };
 
@@ -628,8 +642,14 @@ export default function CalendarPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[120] p-4" onMouseDown={() => setShowSuccess(false)}>
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 text-center border">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 className="w-10 h-10 text-green-600" /></div>
-            <h2 className="text-3xl font-black text-gray-900 mb-2">Reçue !</h2>
-            <p className="text-gray-500 font-medium mb-8 text-sm leading-relaxed">Votre demande est en cours de validation par notre administration.</p>
+            <h2 className="text-3xl font-black text-gray-900 mb-2">
+              {isAutoConfirmed ? "Validée !" : "Reçue !"}
+            </h2>
+            <p className="text-gray-500 font-medium mb-8 text-sm leading-relaxed">
+              {isAutoConfirmed 
+                ? "Étant membre de l'équipe, votre réservation a été automatiquement confirmée pour ce créneau." 
+                : "Votre demande est en cours de validation par notre administration."}
+            </p>
             <button onClick={() => setShowSuccess(false)} className="w-full bg-black text-white font-black py-4 rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-colors">C'est parfait <ChevronRight size={20} className="ml-2" /></button>
           </div>
         </div>
