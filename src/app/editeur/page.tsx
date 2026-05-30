@@ -193,7 +193,13 @@ export default function EditeurPage() {
                     <div><label className="block text-xs font-bold text-gray-700 mb-2">Titre du bloc</label><input type="text" value={content.ext_event_title} onChange={(e) => setContent({...content, ext_event_title: e.target.value})} className="w-full border rounded-xl p-3 bg-gray-50 font-bold" /></div>
                     <div><label className="block text-xs font-bold text-gray-700 mb-2">Bouton (Texte)</label><input type="text" value={content.ext_btn_text} onChange={(e) => setContent({...content, ext_btn_text: e.target.value})} className="w-full border rounded-xl p-3 bg-gray-50 font-medium" /></div>
                     <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-700 mb-2">Explication</label><textarea value={content.ext_event_text} onChange={(e) => setContent({...content, ext_event_text: e.target.value})} className="w-full border rounded-xl p-3 bg-gray-50 font-medium h-20 resize-none" /></div>
-                    <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-700 mb-2">Bouton (Lien Email / URL)</label><input type="text" value={content.ext_btn_link} onChange={(e) => setContent({...content, ext_btn_link: e.target.value})} className="w-full border rounded-xl p-3 bg-gray-50 font-medium text-blue-600" /></div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-gray-700 mb-2">Bouton (Lien Email / URL)</label>
+                      <input type="text" value={content.ext_btn_link} onChange={(e) => setContent({...content, ext_btn_link: e.target.value})} className="w-full border rounded-xl p-3 bg-gray-50 font-medium text-blue-600 mb-2" />
+                      <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
+                        Pour un e-mail, ajoutez <strong className="text-gray-500">mailto:</strong> devant (ex: mailto:contact@domaine.ch). Pour rediriger vers un autre site, mettez l'URL complète (ex: https://...).
+                      </p>
+                    </div>
                   </div>
                 </div>
 
