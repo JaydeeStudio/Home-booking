@@ -103,6 +103,27 @@ export async function POST(req: Request) {
       }));
     }
 
+if (type === 'CONTACT_FORM') {
+      const contactContent = `
+        <p style="font-size: 16px; color: #374151;">Un nouveau message a été envoyé depuis la page d'accueil par <strong>${user_name}</strong>.</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 30px 0; background: #f9fafb; border-radius: 16px; overflow: hidden;">
+          <tr><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold; width: 30%;">E-mail</td><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: bold;"><a href="mailto:${user_email}" style="color: #3b82f6;">${user_email}</a></td></tr>
+          <tr><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold;">Téléphone</td><td style="padding: 16px; border-bottom: 1px solid #e5e7eb; color: #111827; font-weight: bold;">${body.user_phone}</td></tr>
+          <tr><td style="padding: 16px; color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold;">Message</td><td style="padding: 16px; color: #111827; white-space: pre-wrap;">${reason}</td></tr>
+        </table>
+        <div style="text-align: center; margin-top: 40px;">
+          <a href="mailto:${user_email}" style="background: #111827; color: white; padding: 16px 32px; text-decoration: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; display: inline-block;">Répondre à ${user_name}</a>
+        </div>
+      `;
+      return NextResponse.json(await resend.emails.send({
+        from: 'Home Contact <onboarding@resend.dev>', 
+        to: [body.target_email || ADMIN_EMAIL], // Envoie à l'email configuré dans l'éditeur, sinon fallback admin
+        reply_to: user_email, // Permet de faire "Répondre" directement depuis la boîte mail
+        subject: `Nouveau message de ${user_name}`, 
+        html: wrapEmail("Nouveau Message Externe", "#3b82f6", contactContent)
+      }));
+    }
+
     let subject = ""; let content = ""; let emailTitle = "";
 
     if (type === 'CONFIRMED') {

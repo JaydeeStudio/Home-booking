@@ -2,12 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { ChevronDown, Users, CalendarCheck, ShieldCheck, Mail, ArrowRight, CalendarDays } from "lucide-react";
+import { ChevronDown, Users, CalendarCheck, ShieldCheck, Mail, ArrowRight, CalendarDays, X, Send, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [content, setContent] = useState<any>(null);
+  
+  // États pour le formulaire de contact
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    message: ""
+  });
 
   const defaultFaqs = [
     { question: "Une fois ma demande envoyée, que se passe-t-il ?", answer: "Votre demande est mise 'en attente'. Vous recevrez ensuite un e-mail confirmant la validation ou vous proposant une alternative." },
@@ -24,6 +36,47 @@ export default function LandingPage() {
   }, []);
 
   const faqs = content?.faq_json && content.faq_json.length > 0 ? content.faq_json : defaultFaqs;
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'CONTACT_FORM',
+          user_name: `${formData.firstName} ${formData.lastName}`,
+          user_email: formData.email,
+          user_phone: formData.phone,
+          reason: formData.message,
+          // On passe l'adresse cible (éditable dans l'admin) pour que l'API sache à qui envoyer
+          target_email: content?.ext_btn_link?.replace('mailto:', '') || 'sabine@eglisehome.com'
+        })
+      });
+      setContactSuccess(true);
+      setTimeout(() => {
+        setIsContactOpen(false);
+        setContactSuccess(false);
+        setFormData({ firstName: "", lastName: "", email: "", phone: "", message: "" });
+      }, 3000);
+    } catch (error) {
+      alert("Une erreur est survenue lors de l'envoi.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleContactClick = (e: React.MouseEvent) => {
+    const link = content?.ext_btn_link || "mailto:sabine@eglisehome.com";
+    // Si le lien édité par l'admin est un mailto, on intercepte et on ouvre notre modale
+    if (link.startsWith('mailto:')) {
+      e.preventDefault();
+      setIsContactOpen(true);
+    }
+    // Sinon, c'est une URL classique (ex: un lien vers un Google Form), on laisse faire le comportement normal
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 selection:bg-[#F4E5D2] selection:text-black">
@@ -80,7 +133,11 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="relative z-10 w-full sm:w-auto">
-            <a href={content?.ext_btn_link || "mailto:sabine@eglisehome.com"} className="block text-center bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-gray-100 text-[10px]">
+            <a 
+              href={content?.ext_btn_link || "mailto:sabine@eglisehome.com"} 
+              onClick={handleContactClick}
+              className="block cursor-pointer text-center bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-gray-100 text-[10px]"
+            >
               {content?.ext_btn_text || "Contacter Sabine"}
             </a>
           </div>
@@ -105,6 +162,87 @@ export default function LandingPage() {
           ))}
         </div>
       </main>
+
+      {/* MODALE DE CONTACT */}
+      {isContactOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onMouseDown={(e) => {if(e.target === e.currentTarget && !isSubmitting) setIsContactOpen(false)}}>
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col border border-white/20">
+            {contactSuccess ? (
+              <div className="p-12 text-center">
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <CheckCircle2 className="w-10 h-10 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-black uppercase tracking-tight text-gray-900 mb-2">Message envoyé</h2>
+                <p className="text-sm text-gray-500 font-medium">Nous vous répondrons dans les plus brefs délais.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight text-gray-900">Nous contacter</h2>
+                    <p className="text-xs font-medium text-gray-500 mt-1">Présentez-nous votre projet d'événement.</p>
+                  </div>
+                  <button type="button" onClick={() => {if(!isSubmitting) setIsContactOpen(false)}} className="bg-gray-50 p-2.5 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50">
+                    <X size={20} className="text-gray-600"/>
+                  </button>
+                </div>
+                
+                <div className="overflow-y-auto p-6 flex-1">
+                  <form id="contactForm" onSubmit={handleContactSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Prénom *</label>
+                        <input type="text" required disabled={isSubmitting} value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Nom *</label>
+                        <input type="text" required disabled={isSubmitting} value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" />
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">E-mail *</label>
+                        <input type="email" required disabled={isSubmitting} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Téléphone *</label>
+                        <input type="tel" required disabled={isSubmitting} value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="block w-full h-[52px] border border-gray-200 rounded-xl px-4 bg-gray-50 font-medium outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Votre demande *</label>
+                      <textarea required disabled={isSubmitting} value={formData.message} onChange={(e) => setFormData({...formData, message: e.target.value})} placeholder="Décrivez votre besoin en détail..." className="block w-full border border-gray-200 rounded-xl p-4 bg-gray-50 font-medium h-32 resize-none outline-none focus:ring-2 focus:ring-gray-200 disabled:opacity-50" />
+                    </div>
+                  </form>
+                </div>
+
+                <div className="p-6 border-t border-gray-100 bg-white shrink-0">
+                  <button 
+                    type="submit" 
+                    form="contactForm"
+                    disabled={isSubmitting} 
+                    className={`w-full text-white font-black uppercase py-4 rounded-2xl shadow-xl text-sm transition-all flex items-center justify-center ${isSubmitting ? 'bg-gray-800 cursor-wait' : 'bg-black hover:scale-[1.02]'}`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                         </svg>
+                         Envoi en cours...
+                      </>
+                    ) : (
+                      <><Send size={18} className="mr-2" /> Envoyer le message</>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
