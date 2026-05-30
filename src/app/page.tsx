@@ -7,6 +7,7 @@ import { ChevronDown, Users, CalendarCheck, ShieldCheck, Mail, ArrowRight, Calen
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [content, setContent] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true); // NOUVEAU : État de chargement
   
   // États pour le formulaire de contact
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -30,11 +31,28 @@ export default function LandingPage() {
     const fetchContent = async () => {
       const { data } = await supabase.from("site_content").select("*").eq("id", 1).single();
       if (data) setContent(data);
+      setIsLoading(false); // FIN DU CHARGEMENT
     };
     fetchContent();
   }, []);
 
   const faqs = content?.faq_json && content.faq_json.length > 0 ? content.faq_json : defaultFaqs;
+
+  // NOUVEAU : BEL ÉCRAN DE CHARGEMENT
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F4E5D2] flex flex-col items-center justify-center font-sans">
+        <img 
+          src="/Logo-Home_noir.png" 
+          alt="Home" 
+          className="h-10 md:h-12 object-contain animate-pulse mb-6" 
+        />
+        <div className="text-[10px] font-black uppercase tracking-widest text-black/40 animate-pulse">
+          Chargement de l'espace...
+        </div>
+      </div>
+    );
+  }
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
