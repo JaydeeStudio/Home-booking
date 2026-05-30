@@ -325,7 +325,7 @@ export default function CalendarPage() {
           <div className="inline-flex items-center justify-center space-x-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg w-max">
              <DoorOpen size={14} className="text-gray-900" />
              <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 mt-0.5">
-               Spaces
+               Réservation
              </span>
           </div>
         </div>

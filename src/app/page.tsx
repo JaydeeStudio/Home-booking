@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { ChevronDown, Users, CalendarCheck, ShieldCheck, Mail, ArrowRight, CalendarDays, X, Send, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import { ChevronDown, Users, CalendarCheck, ShieldCheck, Mail, ArrowRight, CalendarDays, X, Send, CheckCircle2, DoorOpen } from "lucide-react";import Link from "next/link";
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -83,9 +82,21 @@ export default function LandingPage() {
       
       <header className="bg-[#F4E5D2] px-4 py-8 md:py-12 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden rounded-b-[32px]">
         <div className="relative z-10 max-w-4xl mx-auto w-full">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 bg-black text-[#F4E5D2] rounded-xl flex items-center justify-center text-xl md:text-2xl font-black shadow-lg">H</div>
-            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">Home Réservation</h1>
+          <div className="flex flex-col items-center justify-center mb-6">
+            {/* Le Logo principal */}
+            <img 
+              src="/Logo-Home_noir.png" 
+              alt="Home" 
+              className="h-10 md:h-12 object-contain mb-4" 
+            />
+            
+            {/* Le Badge "Réservation" façon sidebar */}
+            <div className="inline-flex items-center space-x-2 bg-white/50 backdrop-blur-md border border-[#EADDCC] px-4 py-2 rounded-xl shadow-sm">
+              <DoorOpen size={16} className="text-gray-900" />
+              <h1 className="text-[11px] md:text-xs font-black uppercase tracking-widest text-gray-900 mt-0.5">
+                Réservation
+              </h1>
+            </div>
           </div>
           <p className="text-sm md:text-base text-black/80 font-medium max-w-xl mx-auto mb-6 px-4">
             {content?.landing_title || "La plateforme de réservation des espaces de l'église, réservée à la communauté Home Lausanne."}
